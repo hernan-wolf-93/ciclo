@@ -116,3 +116,18 @@ erDiagram
         datetime fecha_hora
     }
 ```
+## Reglas del backend (adicionales)
+
+- El programa de un lote debe pertenecer al mismo método que el equipo del lote.
+
+## Pendientes de validación con el servicio
+
+| Tema | Efecto posible en el modelo |
+|---|---|
+| Numeración de lotes: reinicio por día, mes, año o equipo | Cambiar la unicidad de `lote.numero` |
+| Reprocesamiento de un material | Agregar un número de intento a `evento_item` o reemplazar su restricción única |
+| Datos del ciclo (temperatura, tiempo, resultado) | Nuevas columnas o tabla en `lote` |
+| Urgencia de un material y quién la marca | Nueva columna en `item` |
+| Materiales cargados por cantidad (por ejemplo, gasas) | Posible campo de cantidad en `item` |
+| Observaciones en la entrega | Nueva columna en `entrega` |
+| Programas propios de cada método | Mantener o quitar `programa.metodo_id` |
