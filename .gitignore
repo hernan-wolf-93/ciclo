@@ -1,0 +1,29 @@
+# Secretos y configuracion local
+.env
+*.env.local
+
+# Material de trabajo que no debe subirse (fotos, planillas, datos reales)
+privado/
+
+# Volcados de base de datos
+*.dump
+*.sql
+*.bak
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Editor y sistema
+.idea/
+Thumbs.db
+.DS_Store
+*.log
