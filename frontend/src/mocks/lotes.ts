@@ -118,17 +118,21 @@ function finAireacion(finLote: string, servicioId: number): string {
 // Ítems y eventos
 // ---------------------------------------------------------------------------
 
-// Un paso del historial: [etapa, fecha y hora, operador]
-type Paso = [etapaId: number, fechaHora: string, operadorId: number]
+// Un paso del historial: [etapa, fecha y hora, operador, lote (opcional)]
+// El lote solo se indica en Esterilización cuando no es el lote actual del ítem
+// (por ejemplo, el intento que falló antes de reesterilizar).
+type Paso = [etapaId: number, fechaHora: string, operadorId: number, loteId?: number]
 
 let siguienteEvento = 1
 
-function eventos(itemId: number, pasos: Paso[]): EventoItem[] {
-  return pasos.map(([etapa_id, fecha_hora, operador_id]) => ({
+function eventos(itemId: number, loteDelItem: number, pasos: Paso[]): EventoItem[] {
+  return pasos.map(([etapa_id, fecha_hora, operador_id, loteId]) => ({
     id: siguienteEvento++,
     item_id: itemId,
     etapa_id,
     operador_id,
+    // ! Provisorio: lote_id solo en Esterilización (la columna no existe en el modelo)
+    lote_id: etapa_id === ESTERILIZACION ? (loteId ?? loteDelItem) : null,
     fecha_hora,
     etapa: etapa(etapa_id),
     operador: operador(operador_id),
@@ -158,7 +162,7 @@ function item(d: DatosItem): ItemDelLote {
     material: material(d.material_id),
     servicio: servicio(d.servicio_id),
     aireacion_fin: d.aireacion_fin ?? null,
-    eventos: eventos(d.id, d.pasos),
+    eventos: eventos(d.id, d.lote_id, d.pasos),
   }
 }
 
@@ -199,8 +203,8 @@ const loteViejo: LoteDetalle = {
   ],
 }
 
-// Óxido de etileno en aireación: mezcla Guardia (3 días) y Pediatría (7 días).
-// Terminó hace 4 días: Guardia ya cumplió la aireación, Pediatría todavía no.
+// Óxido de etileno en aireación: mezcla Consultorios (3 días) y Pediatría (7 días).
+// Terminó hace 4 días: Consultorios ya cumplió la aireación, Pediatría todavía no.
 const finLoteOxido = momento(4, '13:30')
 const loteOxido: LoteDetalle = {
   id: 2,
@@ -217,9 +221,11 @@ const loteOxido: LoteDetalle = {
   reesterilizacion: null,
   reemplaza_a: null,
   items: [
+    // ? Guardia Pediátrica lleva 7 días según el servicio; falta confirmar si es
+    // ? un servicio aparte de Guardia y de Pediatría. Por eso acá va Consultorios.
     item({
-      id: 2, recepcion_id: 2, material_id: 14, servicio_id: 3, metodo_id: 3, lote_id: 2,
-      aireacion_fin: finAireacion(finLoteOxido, 3),
+      id: 2, recepcion_id: 2, material_id: 14, servicio_id: 5, metodo_id: 3, lote_id: 2,
+      aireacion_fin: finAireacion(finLoteOxido, 5),
       pasos: [
         [RECEPCION, momento(5, '07:40'), 1],
         [LAVADO, momento(5, '09:15'), 2],
@@ -306,7 +312,8 @@ const loteAutoclave: LoteDetalle = {
 // !     fallido "pierde" sus ítems. Acá el detalle devuelve los ítems que
 // !     PASARON por el lote, aunque su lote_id ya sea el del lote nuevo.
 // !  2. uq_evento_item_etapa no deja que un ítem pase dos veces por
-// !     Esterilización. Acá el historial tiene los dos eventos.
+// !     Esterilización. Acá el historial tiene los dos eventos, cada uno
+// !     con el lote_id de su intento (columna provisoria en evento_item).
 // ! Los mismos ítems aparecen en el lote fallido y en el de reemplazo.
 const itemsReesterilizados: ItemDelLote[] = [
   item({
@@ -315,8 +322,8 @@ const itemsReesterilizados: ItemDelLote[] = [
       [RECEPCION, momento(2, '08:00'), 1],
       [LAVADO, momento(2, '10:00'), 2],
       [EMPAQUE, momento(2, '14:00'), 4],
-      [ESTERILIZACION, momento(1, '09:00'), 3], // lote 13, falló
-      [ESTERILIZACION, momento(1, '11:00'), 1], // lote 14, reemplazo
+      [ESTERILIZACION, momento(1, '09:00'), 3, 4], // lote N.º 13 (id 4), falló
+      [ESTERILIZACION, momento(1, '11:00'), 1, 5], // lote N.º 14 (id 5), reemplazo
       [ALMACEN, momento(1, '12:20'), 1],
     ],
   }),
@@ -326,8 +333,8 @@ const itemsReesterilizados: ItemDelLote[] = [
       [RECEPCION, momento(2, '08:30'), 1],
       [LAVADO, momento(2, '10:15'), 2],
       [EMPAQUE, momento(2, '14:10'), 4],
-      [ESTERILIZACION, momento(1, '09:00'), 3], // lote 13, falló
-      [ESTERILIZACION, momento(1, '11:00'), 1], // lote 14, reemplazo
+      [ESTERILIZACION, momento(1, '09:00'), 3, 4], // lote N.º 13 (id 4), falló
+      [ESTERILIZACION, momento(1, '11:00'), 1, 5], // lote N.º 14 (id 5), reemplazo
       [ALMACEN, momento(1, '12:20'), 1],
     ],
   }),

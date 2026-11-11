@@ -102,7 +102,7 @@ export interface LoteResumen {
   fin: string | null
   equipo: Equipo
   resultado: ResultadoCiclo | null // ! provisorio: sale de DatosCiclo
-  aireacion_fin: string | null // ! provisorio: la mayor aireacion_fin de sus ítems
+  aireacion_fin_max: string | null // ! provisorio: la mayor aireacion_fin de sus ítems
 }
 
 // Historial de un ítem: una fila de la tabla evento_item
@@ -111,6 +111,9 @@ export interface EventoItem {
   item_id: number
   etapa_id: number
   operador_id: number
+  // ! PROVISORIO: la columna todavía no existe en el modelo. Solo tiene valor
+  // ! en los eventos de Esterilización: vincula cada intento con su lote.
+  lote_id: number | null
   fecha_hora: string
   etapa: Etapa
   operador: Operador

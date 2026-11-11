@@ -22,7 +22,7 @@ function resumir(lote: LoteDetalle): LoteResumen {
     fin: lote.fin,
     equipo: lote.equipo,
     resultado: lote.ciclo?.resultado ?? null,
-    aireacion_fin: fines.length > 0 ? fines[fines.length - 1] : null,
+    aireacion_fin_max: fines.length > 0 ? fines[fines.length - 1] : null,
   }
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Timeline, Title } from '@mantine/core'
 import { obtenerLote, obtenerLotes } from '../services/lotesService'
-import type { EstadoLote, ItemDelLote, LoteDetalle, LoteResumen, ResultadoCiclo } from '../types'
+import type { EstadoLote, EventoItem, ItemDelLote, LoteDetalle, LoteResumen, ResultadoCiclo } from '../types'
 import styles from './Lotes.module.css'
 
 // ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ export default function Lotes() {
                 </Table.Thead>
                 <Table.Tbody>
                   {lotes.map((l) => {
-                    const estado = ESTADOS[deducirEstado(l.fin, l.resultado, l.aireacion_fin, ahora)]
+                    const estado = ESTADOS[deducirEstado(l.fin, l.resultado, l.aireacion_fin_max, ahora)]
                     const elegido = detalle?.id === l.id
 
                     return (
@@ -359,6 +359,22 @@ function ItemConHistorial({ item, lote, ahora }: ItemConHistorialProps) {
   // La etapa actual no se guarda: es la del último evento
   const ultimo = eventos.length > 0 ? eventos[eventos.length - 1] : null
 
+  // ! Provisorio (evento_item.lote_id no existe en el modelo): para mostrar el
+  // ! N.º de lote en cada Esterilización usamos los lotes que conoce el detalle:
+  // ! este, el de reemplazo y el que reemplaza. Si el back devuelve otro, va sin número.
+  const numerosDeLote = new Map<number, number>([[lote.id, lote.numero]])
+  if (lote.reesterilizacion) numerosDeLote.set(lote.reesterilizacion.lote_nuevo_id, lote.reesterilizacion.lote_nuevo_numero)
+  if (lote.reemplaza_a) numerosDeLote.set(lote.reemplaza_a.id, lote.reemplaza_a.numero)
+  // El lote que falló: este (si se reesterilizó) o el que reemplaza
+  const loteFallidoId = lote.reesterilizacion ? lote.id : lote.reemplaza_a?.id
+
+  function tituloEvento(e: EventoItem) {
+    const numero = e.lote_id !== null ? numerosDeLote.get(e.lote_id) : undefined
+    if (numero === undefined) return e.etapa.nombre
+    const fallo = e.lote_id === loteFallidoId ? ' (falló)' : ''
+    return `${e.etapa.nombre} · lote N.º ${numeroLote(numero)}${fallo}`
+  }
+
   return (
     <Paper withBorder radius="md" p="md">
       <Group justify="space-between" align="flex-start" mb="xs">
@@ -390,7 +406,7 @@ function ItemConHistorial({ item, lote, ahora }: ItemConHistorialProps) {
 
       <Timeline active={eventos.length - 1} bulletSize={18} lineWidth={2} mt="md" className={styles.historial}>
         {eventos.map((e) => (
-          <Timeline.Item key={e.id} title={e.etapa.nombre}>
+          <Timeline.Item key={e.id} title={tituloEvento(e)}>
             <Text size="sm" c="dimmed">
               {diaHora(e.fecha_hora)} h · Operador N.º {e.operador.numero_operador}
             </Text>
