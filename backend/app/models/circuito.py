@@ -85,7 +85,7 @@ class Item(Base):
     material_id: Mapped[int] = mapped_column(ForeignKey("material.id"))
     metodo_id: Mapped[int | None] = mapped_column(ForeignKey("metodo_esterilizacion.id"))
     lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote.id"), index=True)
-    entrega_id: Mapped[int | None] = mapped_column(ForeignKey("entrega.id"))
+    entrega_id: Mapped[int | None] = mapped_column(ForeignKey("entrega.id"), index=True)
 
     recepcion: Mapped["Recepcion"] = relationship(back_populates="items")
     lote: Mapped["Lote | None"] = relationship(back_populates="items")
@@ -102,7 +102,7 @@ class EventoItem(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    item_id: Mapped[int] = mapped_column(ForeignKey("item.id"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("item.id"))
     etapa_id: Mapped[int] = mapped_column(ForeignKey("etapa.id"))
     operador_id: Mapped[int] = mapped_column(ForeignKey("operador.id"))
     fecha_hora: Mapped[datetime] = mapped_column(
