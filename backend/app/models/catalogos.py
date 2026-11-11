@@ -40,6 +40,7 @@ class Material(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100), unique=True)
+    codigo: Mapped[str | None] = mapped_column(String(10), unique=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
