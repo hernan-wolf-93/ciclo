@@ -1,0 +1,70 @@
+.app {
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 12px 32px;
+  background: #fff;
+  border-bottom: 1px solid #d5dbe0;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.link {
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: var(--texto);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.link:hover {
+  background: #eef1f3;
+}
+
+.activo,
+.activo:hover {
+  background: var(--texto);
+  color: #fff;
+}
+
+.derecha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #5a6b78;
+  font-size: 14px;
+}
+
+.operador {
+  padding: 10px 16px;
+  border: 1px solid #d5dbe0;
+  border-radius: 8px;
+  color: var(--texto);
+  background: #fff;
+}
+
+.franja {
+  padding: 10px 32px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.main {
+  padding: 32px;
+}

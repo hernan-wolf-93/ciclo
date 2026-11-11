@@ -1,0 +1,14 @@
+:root {
+  --rojo: #b3261e;
+  --azul: #1f5fa8;
+  --gris: #5b6b76;
+  --verde: #1e7a4c;
+  --fondo: #e8ebed;
+  --texto: #14304a;
+}
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+}
