@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Button, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, Textarea, Title } from '@mantine/core'
-import { obtenerMateriales, obtenerServicios } from '../services/recepcionService'
-import type { Material, Servicio } from '../types'
+import { ActionIcon, Alert, Button, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
+import { obtenerMateriales, obtenerServicios, registrarRecepcion } from '../services/recepcionService'
+import type { Material, RecepcionCreada, Servicio } from '../types'
 
 export default function Recepcion() {
   const [servicios, setServicios] = useState<Servicio[]>([])
@@ -15,6 +15,12 @@ export default function Recepcion() {
   // * Control de piezas: arranca vacío para que el operador lo elija sí o sí
   const [piezas, setPiezas] = useState<'' | 'completo' | 'falta'>('')
   const [observacion, setObservacion] = useState('')
+
+  // ? Cuando esté el login, el operador sale de la sesión y este campo se va
+  const [operador, setOperador] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
+  const [registrada, setRegistrada] = useState<RecepcionCreada | null>(null)
 
   // Al entrar a la pantalla traemos los catálogos (por ahora, del mock)
   useEffect(() => {
@@ -37,6 +43,53 @@ export default function Recepcion() {
   }
 
   const totalUnidades = Object.values(cantidades).reduce((suma, c) => suma + c, 0)
+
+  async function registrar() {
+    setRegistrada(null)
+
+    // * Validamos de arriba hacia abajo y avisamos lo primero que falte
+    if (servicioId === null) return setError('Elegí el servicio de origen.')
+    if (totalUnidades === 0) return setError('Cargá al menos un material.')
+    if (piezas === '') return setError('Indicá si el material llegó completo o si falta una pieza.')
+    // ! Si Salica dice que la observación no es obligatoria, borrar la línea de abajo
+    if (piezas === 'falta' && observacion.trim() === '') return setError('Escribí qué pieza falta.')
+    if (operador === '') return setError('Ingresá tu N.º de operador.')
+
+    setError('')
+    setEnviando(true)
+
+    try {
+      // Pasamos de { 3: 2, 12: 1 } a [{ material_id: 3, cantidad: 2 }, ...]
+      const items = Object.entries(cantidades).map(([id, cantidad]) => ({
+        material_id: Number(id),
+        cantidad,
+      }))
+
+      const resultado = await registrarRecepcion({
+        servicio_id: servicioId,
+        operador,
+        items,
+        completo: piezas === 'completo',
+        observacion: observacion.trim() || undefined,
+      })
+
+      setRegistrada(resultado)
+
+      // Limpiamos el formulario para la próxima carga.
+      // El operador queda, porque suele ser la misma persona cargando varias.
+      setServicioId(null)
+      setCantidades({})
+      setPiezas('')
+      setObservacion('')
+    } catch {
+      setError('No se pudo registrar la recepción. Probá de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  // Para mostrar el nombre del servicio en la confirmación
+  const servicioRegistrado = servicios.find((s) => s.id === registrada?.servicio_id)
 
   return (
     <Stack gap="xl" maw={900}>
@@ -88,6 +141,7 @@ export default function Recepcion() {
                   <Group gap="xs" wrap="nowrap">
                     <ActionIcon
                       size="xl"
+                      fz={22}
                       variant="default"
                       disabled={cantidad === 0}
                       onClick={() => cambiarCantidad(m.id, -1)}
@@ -102,6 +156,7 @@ export default function Recepcion() {
 
                     <ActionIcon
                       size="xl"
+                      fz={22}
                       color="var(--rojo)"
                       onClick={() => cambiarCantidad(m.id, 1)}
                       aria-label={`Agregar una unidad de ${m.nombre}`}
@@ -155,6 +210,51 @@ export default function Recepcion() {
         />
       </section>
 
+      {/* 4. Operador */}
+      <section>
+        <Text fw={700} size="lg" mb="sm">
+          4. Operador
+        </Text>
+        <TextInput
+          size="lg"
+          maw={240}
+          label="N.º de operador"
+          placeholder="Ej: 1234"
+          inputMode="numeric"
+          value={operador}
+          // Solo dejamos escribir números
+          onChange={(e) => setOperador(e.currentTarget.value.replace(/\D/g, ''))}
+        />
+      </section>
+
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
+
+          {/* TODO (Salica): mostrar la hora en 24 h → agregar hour12: false y cambiar el "." final por " h." */}
+      {registrada && (
+        <Alert
+          color="green"
+          variant="light"
+          title={`Recepción N.º ${registrada.id} registrada`}
+          withCloseButton
+          onClose={() => setRegistrada(null)}
+        >
+          {registrada.total_items} {registrada.total_items === 1 ? 'unidad' : 'unidades'} de{' '}
+          {servicioRegistrado?.nombre} a las{' '}
+          {new Date(registrada.fecha_hora).toLocaleTimeString('es-AR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+          .
+        </Alert>
+      )}
+
+      <Button size="xl" color="var(--rojo)" loading={enviando} onClick={registrar}>
+        Registrar recepción
+      </Button>
     </Stack>
   )
 }
