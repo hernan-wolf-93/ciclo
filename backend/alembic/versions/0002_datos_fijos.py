@@ -53,6 +53,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # ATENCION: si ya hay lotes, items u operadores que usan estas filas, los DELETE
+    # fallan por las claves foraneas. Es una proteccion deseada: no se pueden
+    # borrar catalogos con historial.
     # Orden inverso: primero lo que depende de otras tablas.
     op.execute("""
         DELETE FROM equipo WHERE nombre IN

@@ -1,6 +1,6 @@
 # Modelo entidad-relación de CICLO
 
-Estado: coincide con las migraciones `9afab0f20aec` (esquema inicial) y `0002` (datos fijos).
+Estado: coincide con las migraciones `9afab0f20aec` (esquema inicial) `0002` (datos fijos) y `0003` (ajuste de índices).
 
 Reglas que no se pueden dibujar en el diagrama:
 
