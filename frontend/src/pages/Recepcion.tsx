@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Alert, Button, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Alert, Button, Checkbox, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
 import { obtenerMateriales, obtenerServicios, registrarRecepcion } from '../services/recepcionService'
 import type { Material, RecepcionCreada, Servicio } from '../types'
 
@@ -15,6 +15,8 @@ export default function Recepcion() {
   // * Control de piezas: arranca vacío para que el operador lo elija sí o sí
   const [piezas, setPiezas] = useState<'' | 'completo' | 'falta'>('')
   const [observacion, setObservacion] = useState('')
+  // * Si falta una pieza, el operador confirma que avisó al servicio de origen
+  const [avisado, setAvisado] = useState(false)
 
   // ? Cuando esté el login, el operador sale de la sesión y este campo se va
   const [operador, setOperador] = useState('')
@@ -54,6 +56,7 @@ export default function Recepcion() {
     // ! Si Salica dice que la observación no es obligatoria, borrar la línea de abajo
     if (piezas === 'falta' && observacion.trim() === '') return setError('Escribí qué pieza falta.')
     if (operador === '') return setError('Ingresá tu N.º de operador.')
+    if (piezas === 'falta' && !avisado) return setError('Confirmá que le avisaste al servicio de origen.')
 
     setError('')
     setEnviando(true)
@@ -71,6 +74,7 @@ export default function Recepcion() {
         items,
         completo: piezas === 'completo',
         observacion: observacion.trim() || undefined,
+        servicio_avisado: piezas === 'falta' ? avisado : undefined,
       })
 
       setRegistrada(resultado)
@@ -81,6 +85,7 @@ export default function Recepcion() {
       setCantidades({})
       setPiezas('')
       setObservacion('')
+      setAvisado(false)
     } catch {
       setError('No se pudo registrar la recepción. Probá de nuevo.')
     } finally {
@@ -208,6 +213,20 @@ export default function Recepcion() {
           value={observacion}
           onChange={(e) => setObservacion(e.currentTarget.value)}
         />
+        {/* Solo aparece si falta una pieza: deja registrado que el servicio ya sabe */}
+        {piezas === 'falta' && (
+          <Checkbox
+            mt="md"
+            size="md"
+            color="orange"
+            label="Avisé al servicio de origen que el material llegó incompleto"
+            checked={avisado}
+            onChange={(e) => {
+              setAvisado(e.currentTarget.checked)
+              setError('')
+            }}
+          />
+        )}
       </section>
 
       {/* 4. Operador */}
@@ -233,7 +252,7 @@ export default function Recepcion() {
         </Alert>
       )}
 
-          {/* TODO (Salica): mostrar la hora en 24 h → agregar hour12: false y cambiar el "." final por " h." */}
+      {/* TODO (Salica): mostrar la hora en 24 h → agregar hour12: false y cambiar el "." final por " h." */}
       {registrada && (
         <Alert
           color="green"

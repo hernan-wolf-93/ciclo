@@ -25,6 +25,7 @@ export interface NuevaRecepcion {
   items: ItemRecepcion[]
   completo: boolean // ? todavía no existe en el modelo
   observacion?: string // ? todavía no existe en el modelo
+    servicio_avisado?: boolean // ? solo si falta una pieza: confirma que se le avisó al servicio
 }
 
 // Lo que devuelve el back al registrar
