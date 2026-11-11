@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Button, Group, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import { ActionIcon, Button, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, Textarea, Title } from '@mantine/core'
 import { obtenerMateriales, obtenerServicios } from '../services/recepcionService'
 import type { Material, Servicio } from '../types'
 
@@ -11,6 +11,10 @@ export default function Recepcion() {
   // * Cuántas unidades hay de cada material, por id. Ej: { 3: 2, 12: 1 }
   // * Solo guardamos los que tienen 1 o más.
   const [cantidades, setCantidades] = useState<Record<number, number>>({})
+
+  // * Control de piezas: arranca vacío para que el operador lo elija sí o sí
+  const [piezas, setPiezas] = useState<'' | 'completo' | 'falta'>('')
+  const [observacion, setObservacion] = useState('')
 
   // Al entrar a la pantalla traemos los catálogos (por ahora, del mock)
   useEffect(() => {
@@ -115,6 +119,42 @@ export default function Recepcion() {
           Total: {totalUnidades} {totalUnidades === 1 ? 'unidad' : 'unidades'}
         </Text>
       </section>
+
+      {/* 3. Control de piezas */}
+      <section>
+        <Text fw={700} size="lg" mb="sm">
+          3. Control de piezas
+        </Text>
+
+        <SegmentedControl
+          size="lg"
+          fullWidth
+          value={piezas}
+          onChange={(valor) => setPiezas(valor as 'completo' | 'falta')}
+          color={piezas === 'falta' ? 'orange' : 'var(--verde)'}
+          data={[
+            { label: 'Completo', value: 'completo' },
+            { label: 'Falta una pieza', value: 'falta' },
+          ]}
+        />
+
+        {/* Si falta algo, el texto pide que se aclare qué */}
+        <Textarea
+          mt="md"
+          size="md"
+          autosize
+          minRows={2}
+          label={piezas === 'falta' ? '¿Qué pieza falta?' : 'Observación (opcional)'}
+          placeholder={
+            piezas === 'falta'
+              ? 'Ej: falta una pinza de la caja cesárea'
+              : 'Cualquier aclaración sobre el material recibido'
+          }
+          value={observacion}
+          onChange={(e) => setObservacion(e.currentTarget.value)}
+        />
+      </section>
+
     </Stack>
   )
 }
