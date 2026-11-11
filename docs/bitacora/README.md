@@ -6,7 +6,25 @@ documento de la carpeta del proyecto, de acceso restringido al equipo y a la
 tutora. Las capturas no se suben a este repositorio porque es público.
 
 Las entradas más nuevas van arriba. Cada integrante agrega su fila en el mismo
-pull request de su tarjeta.
+pull request de su tarjeta, y como mínimo una entrada por semana.
+
+## Plantilla de entrada
+
+Cada entrada completa se escribe en la pestaña "Bitácora" del documento, con
+estos campos. Si un campo no aplica, se escribe "No aplica".
+
+- **Título:** fecha, quién y tarjeta de Trello.
+- **Qué se hizo:** 2 a 4 líneas.
+- **Decisiones:** qué se eligió y por qué.
+- **Cómo se usa:** pasos para usar esa parte del sistema.
+- **Captura:** pantalla funcionando, con epígrafe y sin datos del personal.
+- **Qué sigue o problemas:** pendientes o bloqueos.
+- **Enlaces:** PR o commits relacionados (opcional).
+
+En este índice solo va una fila por entrada, con un resumen de una línea y el
+número del PR.
+
+## Entradas
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
