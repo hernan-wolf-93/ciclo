@@ -1,0 +1,26 @@
+/* Filas de la lista: se pueden tocar para ver el detalle */
+.fila {
+  cursor: pointer;
+}
+
+.fila:focus-visible {
+  outline: 2px solid var(--azul);
+  outline-offset: -2px;
+}
+
+/* Lote cuyo detalle se está mostrando */
+.elegida,
+.elegida:hover {
+  background: #dfe8f1;
+}
+
+/* Detalle anterior mientras se carga otro lote */
+.cargando {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Línea de tiempo de cada ítem */
+.historial {
+  padding-left: 4px;
+}
