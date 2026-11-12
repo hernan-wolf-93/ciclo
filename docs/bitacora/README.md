@@ -28,6 +28,8 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas de seguridad (PR #10). |
+| 11/11/2026 | Lobo | Bitácora en GitHub | Índice y plantilla de la bitácora en docs/bitacora/ (PR #9). |
 | 11/11/2026 | Salica | Historial y detalle del lote | Pantalla Lotes con datos de prueba y contrato de la API de historial (PR #8). |
 | 11/11/2026 | Salica | Validar alcance del MVP con la jefa del servicio | Alcance de prioridad alta aprobado; se confirman la numeración de lotes y la reesterilización. |
 | 11/11/2026 | Mara | Pantalla Registrar recepción | Pantalla con datos de prueba y validaciones (PR #6). |
