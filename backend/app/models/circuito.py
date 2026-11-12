@@ -1,12 +1,16 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
+    String,
+    Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,11 +22,26 @@ class Recepcion(Base):
     queda en su evento (decisión D4-A), no en la cabecera."""
 
     __tablename__ = "recepcion"
+    __table_args__ = (
+        CheckConstraint(
+            "completo OR (servicio_avisado AND observacion IS NOT NULL "
+            "AND length(btrim(observacion)) > 0)",
+            name="ck_recepcion_incompleta_requiere_aviso",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     servicio_id: Mapped[int] = mapped_column(ForeignKey("servicio.id"))
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    completo: Mapped[bool] = mapped_column(Boolean)
+    servicio_avisado: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    observacion: Mapped[str | None] = mapped_column(Text)
+    urgente: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
     )
 
     items: Mapped[list["Item"]] = relationship(back_populates="recepcion")
@@ -38,6 +57,7 @@ class Entrega(Base):
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    observacion: Mapped[str | None] = mapped_column(Text)
 
     items: Mapped[list["Item"]] = relationship(back_populates="entrega")
 
@@ -49,10 +69,19 @@ class Lote(Base):
     __tablename__ = "lote"
     __table_args__ = (
         CheckConstraint("fin IS NULL OR fin >= inicio", name="ck_lote_fin_posterior"),
+        CheckConstraint("numero BETWEEN 1 AND 999", name="ck_lote_numero_rango"),
+        CheckConstraint(
+            "resultado IN ('aprobado', 'fallido')", name="ck_lote_resultado_valido"
+        ),
+        CheckConstraint(
+            "resultado IS DISTINCT FROM 'fallido' OR "
+            "(observacion IS NOT NULL AND length(btrim(observacion)) > 0)",
+            name="ck_lote_fallido_requiere_motivo",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    numero: Mapped[int] = mapped_column(Integer, unique=True)
+    numero: Mapped[int] = mapped_column(Integer, index=True)
     equipo_id: Mapped[int] = mapped_column(ForeignKey("equipo.id"))
     programa_id: Mapped[int] = mapped_column(ForeignKey("programa.id"))
     operador_id: Mapped[int] = mapped_column(ForeignKey("operador.id"))
@@ -60,6 +89,8 @@ class Lote(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resultado: Mapped[str | None] = mapped_column(String(10))
+    observacion: Mapped[str | None] = mapped_column(Text)
 
     items: Mapped[list["Item"]] = relationship(back_populates="lote")
 
@@ -98,12 +129,19 @@ class EventoItem(Base):
 
     __tablename__ = "evento_item"
     __table_args__ = (
-        UniqueConstraint("item_id", "etapa_id", name="uq_evento_item_etapa"),
+        UniqueConstraint(
+            "item_id",
+            "etapa_id",
+            "lote_id",
+            name="uq_evento_item_etapa_lote",
+            postgresql_nulls_not_distinct=True,
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("item.id"))
     etapa_id: Mapped[int] = mapped_column(ForeignKey("etapa.id"))
+    lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote.id"), index=True)
     operador_id: Mapped[int] = mapped_column(ForeignKey("operador.id"))
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
