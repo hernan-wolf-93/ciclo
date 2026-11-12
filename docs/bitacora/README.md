@@ -28,7 +28,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
-| 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas de seguridad (PR #10). |
+| 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas automáticas de autenticación (PR #10 y #11). |
 | 11/11/2026 | Lobo | Bitácora en GitHub | Índice y plantilla de la bitácora en docs/bitacora/ (PR #9). |
 | 11/11/2026 | Salica | Historial y detalle del lote | Pantalla Lotes con datos de prueba y contrato de la API de historial (PR #8). |
 | 11/11/2026 | Salica | Validar alcance del MVP con la jefa del servicio | Alcance de prioridad alta aprobado; se confirman la numeración de lotes y la reesterilización. |
@@ -38,5 +38,4 @@ número del PR.
 | 11/11/2026 | Mara | Estructura de pantallas y colores por sector | Base del frontend con menú y franjas de color por área (PR #4). |
 | 11/11/2026 | Mara | Catálogos iniciales | Migración 0004: servicios, regla NEO–UTI y programas provisorios (PR #3). |
 | 10/11/2026 | Lobo | Modelo de datos | Modelo de 14 tablas hasta 3FN, migraciones y DER (PR #2). |
-| 10/11/2026 | Lobo | Definir stack y repositorio | Repositorio, reglas de equipo y protección de `main` (PR #1).
- |
+| 10/11/2026 | Lobo | Definir stack y repositorio | Repositorio, reglas de equipo y protección de `main` (PR #1). |
