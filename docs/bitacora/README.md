@@ -28,6 +28,8 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 12/11/2026 | Lobo | DER y normalización | Migración 0007 (reesterilización, recepción completa, aireación, urgencia y numeración de lote sin UNIQUE), probada con alembic y 25 pruebas de restricciones en PostgreSQL. DER actualizado a las 14 tablas. (#N13 y #N14) | 
+| 12/11/2026 | Lobo | Corrige filas de la bitacora | Corrige la última fila del índice de la bitácora, que estaba partida en dos líneas y no se mostraba bien en GitHub (PR #12). | 
 | 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas automáticas de autenticación (PR #10 y #11). | 
 | 11/11/2026 | Lobo | Bitácora en GitHub | Índice y plantilla de la bitácora en docs/bitacora/ (PR #9). |
 | 11/11/2026 | Salica | Historial y detalle del lote | Pantalla Lotes con datos de prueba y contrato de la API de historial (PR #8). |
