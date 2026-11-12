@@ -5,6 +5,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,9 +14,15 @@ from app.core.database import Base
 
 class Servicio(Base):
     __tablename__ = "servicio"
+    __table_args__ = (
+        CheckConstraint("dias_aireacion >= 0", name="ck_servicio_dias_aireacion"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100), unique=True)
+    dias_aireacion: Mapped[int] = mapped_column(
+        Integer, default=3, server_default=text("3")
+    )
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
@@ -41,6 +48,7 @@ class Material(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100), unique=True)
     codigo: Mapped[str | None] = mapped_column(String(10), unique=True)
+    nombre_alternativo: Mapped[str | None] = mapped_column(String(100))
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
