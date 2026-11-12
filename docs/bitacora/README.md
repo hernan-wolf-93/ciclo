@@ -5,6 +5,8 @@
 documento de la carpeta del proyecto, de acceso restringido al equipo y a la
 tutora. Las capturas no se suben a este repositorio porque es público.
 
+Documento de la carpeta, pestaña "Bitácora": [Carpeta del proyecto CICLO](https://docs.google.com/document/d/1q6vtf3ulhAY8qEkgJB1XzaGMwH0IZx0z2p-Orks6a9Q/edit?tab=t.2pnsw6cfj503#heading=h.6kawy39a2vng)
+
 Las entradas más nuevas van arriba. Cada integrante agrega su fila en el mismo
 pull request de su tarjeta, y como mínimo una entrada por semana.
 
