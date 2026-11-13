@@ -5,7 +5,7 @@ from pathlib import Path
 from alembic.script import ScriptDirectory
 
 from sqlalchemy import text
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.seguridad import hashear_contrasena
 from app.main import app
-from app.models import Operador, Rol
+from app.models import Material, Operador, Rol, Servicio
 
 CONTRASENA_PRUEBA = "clave-de-prueba-1"
 # Se calcula una sola vez: Argon2 es lento a propósito.
@@ -125,3 +125,36 @@ def db_pg(engine_pg):
     sesion.close()
     transaccion.rollback()
     conexion.close()
+    
+@pytest.fixture
+def operador(db_pg):
+    rol = db_pg.scalar(select(Rol).where(Rol.nombre == "Operador"))
+    nuevo = Operador(numero_operador="T-0001", contrasena_hash="hash-de-prueba", rol_id=rol.id)
+    db_pg.add(nuevo)
+    db_pg.commit()
+    return nuevo
+
+
+@pytest.fixture
+def servicio(db_pg):
+    return db_pg.scalar(select(Servicio).where(Servicio.activo.is_(True)).order_by(Servicio.id))
+
+
+@pytest.fixture
+def materiales(db_pg):
+    return list(
+        db_pg.scalars(select(Material).where(Material.activo.is_(True)).order_by(Material.id).limit(2))
+    )
+
+
+@pytest.fixture
+def cliente_pg(db_pg):
+    """Cliente HTTP de prueba con la base de datos reemplazada por ciclo_test."""
+
+    def _db_de_prueba():
+        yield db_pg
+
+    app.dependency_overrides[obtener_db] = _db_de_prueba
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()

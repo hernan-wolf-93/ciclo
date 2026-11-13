@@ -1,30 +1,9 @@
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Etapa, EventoItem, Item, Material, Operador, Recepcion, Rol, Servicio
+from app.models import Etapa, EventoItem, Item, Recepcion
 from app.schemas.recepcion import RecepcionIn
 from app.services.recepcion import ErrorDeRecepcion, registrar_recepcion
-
-
-@pytest.fixture
-def operador(db_pg):
-    rol = db_pg.scalar(select(Rol).where(Rol.nombre == "Operador"))
-    nuevo = Operador(numero_operador="T-0001", contrasena_hash="hash-de-prueba", rol_id=rol.id)
-    db_pg.add(nuevo)
-    db_pg.commit()
-    return nuevo
-
-
-@pytest.fixture
-def servicio(db_pg):
-    return db_pg.scalar(select(Servicio).where(Servicio.activo.is_(True)).order_by(Servicio.id))
-
-
-@pytest.fixture
-def materiales(db_pg):
-    return list(
-        db_pg.scalars(select(Material).where(Material.activo.is_(True)).order_by(Material.id).limit(2))
-    )
 
 
 def _contar(db, modelo):
