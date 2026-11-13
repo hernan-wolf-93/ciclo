@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     database_url: str
     secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = 480
+    test_database_url: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth
+from app.api import auth, recepciones
 
 app = FastAPI(
     title="CICLO",
@@ -8,6 +8,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(recepciones.router)
 
 @app.get("/salud")
 def salud():
