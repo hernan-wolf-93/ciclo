@@ -30,6 +30,8 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 12/11/2026 | Lobo | Registrar recepción (API) | POST /recepciones con ítems por unidad y evento de Recepción firmado por el operador del token, y base PostgreSQL de pruebas (57 pruebas) (PR #16). |
+| 12/11/2026 | Lobo | Agregar enlace en bitacora y arreglar DER | Actualizo enlace restringido de la bitacora en google docx. Y correcciones de numeros de PR en archivo DER. (PR #15). |
 | 12/11/2026 | Lobo | DER y normalización | Migración 0007 (reesterilización, recepción completa, aireación, urgencia y numeración de lote sin UNIQUE), probada con alembic y 25 pruebas de restricciones en PostgreSQL. DER actualizado a las 14 tablas. (PR #13 y #14) | 
 | 12/11/2026 | Lobo | Corrige filas de la bitacora | Corrige la última fila del índice de la bitácora, que estaba partida en dos líneas y no se mostraba bien en GitHub (PR #12). | 
 | 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas automáticas de autenticación (PR #10 y #11). | 
@@ -43,3 +45,38 @@ número del PR.
 | 11/11/2026 | Mara | Catálogos iniciales | Migración 0004: servicios, regla NEO–UTI y programas provisorios (PR #3). |
 | 10/11/2026 | Lobo | Modelo de datos | Modelo de 14 tablas hasta 3FN, migraciones y DER (PR #2). |
 | 10/11/2026 | Lobo | Definir stack y repositorio | Repositorio, reglas de equipo y protección de `main` (PR #1). |
+
+## Pruebas automáticas
+
+Las pruebas de autenticación usan una base SQLite en memoria y no necesitan nada más.
+Las pruebas de recepción usan una base PostgreSQL propia, `ciclo_test`, porque dependen
+de restricciones que SQLite no tiene (CHECK con `btrim`, `NULLS NOT DISTINCT`).
+
+### Crear la base de pruebas (una sola vez por computadora)
+
+1. En pgAdmin, conectado a la base `postgres`, crear una base vacía:
+   `CREATE DATABASE ciclo_test OWNER <usuario de DATABASE_URL>;`
+2. Desde `backend/`, con el entorno virtual activo, migrarla apuntando Alembic a esa base
+   solo en esa ventana de PowerShell:
+
+   ```powershell
+   $env:DATABASE_URL = "postgresql+psycopg://USUARIO:CLAVE@localhost:5432/ciclo_test"
+   alembic upgrade head
+   Remove-Item Env:DATABASE_URL
+   ```
+
+3. Agregar a `backend/.env` (no se sube) la línea `TEST_DATABASE_URL`, con la misma
+   conexión de arriba. Hay un ejemplo en `.env.example`.
+
+### Ejecutar
+
+Desde `backend/`, con el entorno virtual activo: `pytest`. Deben pasar las 57 pruebas.
+
+### Qué hacer si algo falla
+
+- **Se omiten pruebas ("skipped")**: falta `TEST_DATABASE_URL` en `backend/.env`. Un
+  resultado sin omitidas es el que cuenta.
+- **"ciclo_test está en la versión X"**: hay migraciones nuevas. Repetir el paso 2.
+- **"debe terminar en _test"**: las pruebas se niegan a correr contra una base que no sea
+  de pruebas, para no escribir en `ciclo`. Corregir `TEST_DATABASE_URL`.
+- Cada prueba corre en una transacción que se revierte: no deja datos en `ciclo_test`.
