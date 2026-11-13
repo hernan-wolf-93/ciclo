@@ -1,10 +1,18 @@
 import pytest
 from fastapi.testclient import TestClient
+from pathlib import Path
+
+from alembic.script import ScriptDirectory
+
+from sqlalchemy import text
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import obtener_db
+from app.core.config import settings
 from app.core.database import Base
 from app.core.seguridad import hashear_contrasena
 from app.main import app
@@ -72,3 +80,48 @@ def cliente(db):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    
+# ---------------------------------------------------------------------------
+# Base PostgreSQL de pruebas (ciclo_test). El esquema lo crean las migraciones.
+# ---------------------------------------------------------------------------
+RAIZ_BACKEND = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(scope="session")
+def engine_pg():
+    """Conexión a la base de pruebas, con guardas para no tocar la base real."""
+    url = settings.test_database_url
+    if not url:
+        pytest.skip("TEST_DATABASE_URL no está definida en backend/.env: se omiten las pruebas con PostgreSQL")
+
+    nombre = make_url(url).database or ""
+    if not nombre.endswith("_test"):
+        pytest.fail(f"La base de pruebas debe terminar en _test (se recibió '{nombre}'). No se ejecuta nada.")
+    if nombre == make_url(settings.database_url).database:
+        pytest.fail("TEST_DATABASE_URL apunta a la misma base que DATABASE_URL. No se ejecuta nada.")
+
+    engine = create_engine(url)
+    try:
+        with engine.connect() as conexion:
+            actual = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+    except SQLAlchemyError as error:
+        pytest.fail(f"No se pudo leer la versión de la base de pruebas ({type(error).__name__}). "
+                    "¿Está creada y migrada? Ver README.")
+    cabeza = ScriptDirectory(str(RAIZ_BACKEND / "alembic")).get_current_head()
+    if actual != cabeza:
+        pytest.fail(f"ciclo_test está en la versión {actual} y el código en {cabeza}. "
+                    "Actualizala con la variable DATABASE_URL apuntando a ciclo_test y alembic upgrade head.")
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db_pg(engine_pg):
+    """Sesión sobre ciclo_test dentro de una transacción que se revierte al terminar."""
+    conexion = engine_pg.connect()
+    transaccion = conexion.begin()
+    sesion = Session(bind=conexion, autoflush=False, join_transaction_mode="create_savepoint")
+    yield sesion
+    sesion.close()
+    transaccion.rollback()
+    conexion.close()
