@@ -148,6 +148,8 @@ erDiagram
 - Un ítem de un lote fallido no puede avanzar a Almacén ni a Entrega (a validar con el servicio).
 - Un material con cantidad se carga como varios ítems (uno por unidad). Una entrega parcial entrega parte de esos ítems.
 - El backend asigna el siguiente número de lote.
+- `evento_item.lote_id` solo se completa en el evento de Esterilización, y siempre se completa en ese evento.
+- `item.lote_id` y el `lote_id` del último evento de Esterilización se actualizan en la misma transacción.
 
 ## Pendientes de validación con el servicio
 

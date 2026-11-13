@@ -5,6 +5,8 @@
 documento de la carpeta del proyecto, de acceso restringido al equipo y a la
 tutora. Las capturas no se suben a este repositorio porque es público.
 
+Documento de la carpeta, pestaña "Bitácora": [Carpeta del proyecto CICLO](https://docs.google.com/document/d/1q6vtf3ulhAY8qEkgJB1XzaGMwH0IZx0z2p-Orks6a9Q/edit?tab=t.2pnsw6cfj503#heading=h.6kawy39a2vng)
+
 Las entradas más nuevas van arriba. Cada integrante agrega su fila en el mismo
 pull request de su tarjeta, y como mínimo una entrada por semana.
 
@@ -28,7 +30,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
-| 12/11/2026 | Lobo | DER y normalización | Migración 0007 (reesterilización, recepción completa, aireación, urgencia y numeración de lote sin UNIQUE), probada con alembic y 25 pruebas de restricciones en PostgreSQL. DER actualizado a las 14 tablas. (#N13 y #N14) | 
+| 12/11/2026 | Lobo | DER y normalización | Migración 0007 (reesterilización, recepción completa, aireación, urgencia y numeración de lote sin UNIQUE), probada con alembic y 25 pruebas de restricciones en PostgreSQL. DER actualizado a las 14 tablas. (PR #13 y #14) | 
 | 12/11/2026 | Lobo | Corrige filas de la bitacora | Corrige la última fila del índice de la bitácora, que estaba partida en dos líneas y no se mostraba bien en GitHub (PR #12). | 
 | 11/11/2026 | Lobo | Usuarios por N.º de operador | Login con contraseña hasheada y JWT, identificación del operador y pruebas automáticas de autenticación (PR #10 y #11). | 
 | 11/11/2026 | Lobo | Bitácora en GitHub | Índice y plantilla de la bitácora en docs/bitacora/ (PR #9). |
