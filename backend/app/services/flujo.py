@@ -1,8 +1,16 @@
 """Reglas de flujo por etapas (RF4).
 
 Decide si un ítem puede pasar de una etapa a otra. Las etapas se identifican
-por su orden (1 a 6, ver migración 0002). Este módulo no consulta la base.
+por su orden (1 a 6, ver migración 0002). validar_transicion es una función pura;
+situacion_del_item y validar_avance consultan el historial del ítem.
 """
+
+from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Etapa, EventoItem, Lote
 
 ORDEN_PRIMERA_ETAPA = 1
 ORDEN_ESTERILIZACION = 4
@@ -60,3 +68,32 @@ def _validar_salida_de_esterilizacion(orden_destino: int, resultado: str | None)
         "Desde Esterilización solo se avanza a Almacén (lote aprobado) "
         "o se reesterilizan (lote fallido)"
     )
+    
+@dataclass(frozen=True)
+class SituacionItem:
+    """Dónde está un ítem: etapa actual y resultado del lote de su último evento."""
+
+    orden_etapa: int
+    resultado_ultimo_lote: str | None
+
+
+def situacion_del_item(db: Session, item_id: int) -> SituacionItem:
+    """Deduce la situación del ítem a partir de su último evento (el de mayor id)."""
+    fila = db.execute(
+        select(Etapa.orden, Lote.resultado)
+        .select_from(EventoItem)
+        .join(Etapa, Etapa.id == EventoItem.etapa_id)
+        .outerjoin(Lote, Lote.id == EventoItem.lote_id)
+        .where(EventoItem.item_id == item_id)
+        .order_by(EventoItem.id.desc())
+        .limit(1)
+    ).first()
+    if fila is None:
+        raise ErrorDeFlujo("El ítem no existe o no tiene historial")
+    return SituacionItem(orden_etapa=fila.orden, resultado_ultimo_lote=fila.resultado)
+
+
+def validar_avance(db: Session, item_id: int, orden_destino: int) -> None:
+    """Lanza ErrorDeFlujo si el ítem no puede pasar a la etapa de destino."""
+    situacion = situacion_del_item(db, item_id)
+    validar_transicion(situacion.orden_etapa, orden_destino, situacion.resultado_ultimo_lote)
