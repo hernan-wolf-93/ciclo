@@ -10,9 +10,9 @@ import type {
   Programa,
 } from '../types'
 
-// * Datos de prueba ficticios para la pantalla Lotes.
-// * Las fechas se calculan a partir de hoy, así siempre se ven recientes
-// * y el lote de óxido de etileno sigue "en aireación" cuando se prueba.
+// * Datos de prueba ficticios para la pantalla Lotes, con los campos del
+// * modelo de la migración 0007. Las fechas se calculan a partir de hoy, así
+// * siempre se ven recientes y el lote de óxido de etileno sigue "en aireación".
 
 // ---------------------------------------------------------------------------
 // Catálogos: mismos que las migraciones 0002 y 0004 del back
@@ -38,8 +38,8 @@ const PROGRAMAS: Programa[] = [
   { id: 1, nombre: 'Textil 134 °C', metodo_id: 1 },
   { id: 2, nombre: 'Instrumental 134 °C', metodo_id: 1 },
   { id: 3, nombre: 'Gomas 121 °C', metodo_id: 1 },
-  // ! Lobo: confirmado por el servicio, pero todavía no está en la base
-  // ! (la migración 0004 solo carga programas de calor húmedo). Provisorio.
+  // ? Confirmado por el servicio, pero todavía no está en la base:
+  // ? el DER lo prevé en la migración 0008.
   { id: 4, nombre: 'Ciclo caliente 56 °C', metodo_id: 3 },
 ]
 
@@ -92,28 +92,6 @@ function haceMinutos(minutos: number): string {
   return new Date(Date.now() - minutos * 60_000).toISOString()
 }
 
-function sumarDias(iso: string, dias: number): string {
-  const fecha = new Date(iso)
-  fecha.setDate(fecha.getDate() + dias)
-  return fecha.toISOString()
-}
-
-// ---------------------------------------------------------------------------
-// Aireación (solo óxido de etileno)
-// ! Lobo: regla confirmada por la jefa del servicio. Los días dependen del
-// ! servicio de origen del ítem: Neonatología 10, Pediatría 7, el resto 3.
-// ! Conviene que la calcule el back y devuelva aireacion_fin en cada ítem.
-// ---------------------------------------------------------------------------
-
-const DIAS_AIREACION: Record<number, number> = {
-  2: 10, // Neonatología
-  4: 7, // Pediatría
-}
-
-function finAireacion(finLote: string, servicioId: number): string {
-  return sumarDias(finLote, DIAS_AIREACION[servicioId] ?? 3)
-}
-
 // ---------------------------------------------------------------------------
 // Ítems y eventos
 // ---------------------------------------------------------------------------
@@ -131,7 +109,7 @@ function eventos(itemId: number, loteDelItem: number, pasos: Paso[]): EventoItem
     item_id: itemId,
     etapa_id,
     operador_id,
-    // ! Provisorio: lote_id solo en Esterilización (la columna no existe en el modelo)
+    // evento_item.lote_id: solo en Esterilización, el lote de ese intento
     lote_id: etapa_id === ESTERILIZACION ? (loteId ?? loteDelItem) : null,
     fecha_hora,
     etapa: etapa(etapa_id),
@@ -147,7 +125,6 @@ interface DatosItem {
   metodo_id: number
   lote_id: number
   entrega_id?: number
-  aireacion_fin?: string
   pasos: Paso[]
 }
 
@@ -161,19 +138,18 @@ function item(d: DatosItem): ItemDelLote {
     entrega_id: d.entrega_id ?? null,
     material: material(d.material_id),
     servicio: servicio(d.servicio_id),
-    aireacion_fin: d.aireacion_fin ?? null,
     eventos: eventos(d.id, d.lote_id, d.pasos),
   }
 }
 
 // ---------------------------------------------------------------------------
 // Lotes
-// ! Lobo: el número de lote va del 01 al 999 y se reinicia, así que se repite.
-// ! Por eso hay dos lotes N.º 12: la fecha es lo que los distingue.
+// * El número de lote va del 1 al 999 y se reinicia, así que se repite
+// * (lote.numero no es único desde la migración 0007). Por eso hay dos lotes
+// * N.º 12: la fecha es lo que los distingue.
 // ---------------------------------------------------------------------------
 
 // Lote viejo con el mismo número que uno reciente (N.º 12)
-const finLoteViejo = momento(150, '10:05')
 const loteViejo: LoteDetalle = {
   id: 1,
   numero: 12,
@@ -181,12 +157,14 @@ const loteViejo: LoteDetalle = {
   programa_id: 3,
   operador_id: 3,
   inicio: momento(150, '09:00'),
-  fin: finLoteViejo,
+  fin: momento(150, '10:05'),
+  resultado: 'aprobado',
+  observacion: null,
   equipo: equipo(1),
   programa: programa(3),
   operador: operador(3),
-  ciclo: { numero_ciclo: '0412', temperatura_c: 121, tiempo_min: 65, resultado: 'aprobado' },
-  reesterilizacion: null,
+  ciclo: { numero_ciclo: '0412', temperatura_c: 121, tiempo_min: 65 },
+  reemplazado_por: null,
   reemplaza_a: null,
   items: [
     item({
@@ -205,7 +183,7 @@ const loteViejo: LoteDetalle = {
 
 // Óxido de etileno en aireación: mezcla Consultorios (3 días) y Pediatría (7 días).
 // Terminó hace 4 días: Consultorios ya cumplió la aireación, Pediatría todavía no.
-const finLoteOxido = momento(4, '13:30')
+// La pantalla la calcula con lote.fin + servicio.dias_aireacion.
 const loteOxido: LoteDetalle = {
   id: 2,
   numero: 11,
@@ -213,19 +191,20 @@ const loteOxido: LoteDetalle = {
   programa_id: 4,
   operador_id: 2,
   inicio: momento(4, '08:30'),
-  fin: finLoteOxido,
+  fin: momento(4, '13:30'),
+  resultado: 'aprobado',
+  observacion: null,
   equipo: equipo(5),
   programa: programa(4),
   operador: operador(2),
-  ciclo: { numero_ciclo: '0087', temperatura_c: 56, tiempo_min: 300, resultado: 'aprobado' },
-  reesterilizacion: null,
+  ciclo: { numero_ciclo: '0087', temperatura_c: 56, tiempo_min: 300 },
+  reemplazado_por: null,
   reemplaza_a: null,
   items: [
     // ? Guardia Pediátrica lleva 7 días según el servicio; falta confirmar si es
     // ? un servicio aparte de Guardia y de Pediatría. Por eso acá va Consultorios.
     item({
       id: 2, recepcion_id: 2, material_id: 14, servicio_id: 5, metodo_id: 3, lote_id: 2,
-      aireacion_fin: finAireacion(finLoteOxido, 5),
       pasos: [
         [RECEPCION, momento(5, '07:40'), 1],
         [LAVADO, momento(5, '09:15'), 2],
@@ -236,7 +215,6 @@ const loteOxido: LoteDetalle = {
     }),
     item({
       id: 3, recepcion_id: 3, material_id: 3, servicio_id: 4, metodo_id: 3, lote_id: 2,
-      aireacion_fin: finAireacion(finLoteOxido, 4),
       pasos: [
         [RECEPCION, momento(5, '08:05'), 1],
         [LAVADO, momento(5, '09:40'), 2],
@@ -246,7 +224,6 @@ const loteOxido: LoteDetalle = {
     }),
     item({
       id: 4, recepcion_id: 3, material_id: 4, servicio_id: 4, metodo_id: 3, lote_id: 2,
-      aireacion_fin: finAireacion(finLoteOxido, 4),
       pasos: [
         [RECEPCION, momento(5, '08:05'), 1],
         [LAVADO, momento(5, '09:40'), 2],
@@ -266,11 +243,13 @@ const loteAutoclave: LoteDetalle = {
   operador_id: 1,
   inicio: momento(2, '10:00'),
   fin: momento(2, '11:10'),
+  resultado: 'aprobado',
+  observacion: null,
   equipo: equipo(1),
   programa: programa(1),
   operador: operador(1),
-  ciclo: { numero_ciclo: '1187', temperatura_c: 134, tiempo_min: 45, resultado: 'aprobado' },
-  reesterilizacion: null,
+  ciclo: { numero_ciclo: '1187', temperatura_c: 134, tiempo_min: 45 },
+  reemplazado_por: null,
   reemplaza_a: null,
   items: [
     item({
@@ -307,14 +286,11 @@ const loteAutoclave: LoteDetalle = {
   ],
 }
 
-// ! Lobo: reesterilización. Con el modelo actual hay dos problemas:
-// !  1. item.lote_id guarda un solo lote: al pasar al lote nuevo, el lote
-// !     fallido "pierde" sus ítems. Acá el detalle devuelve los ítems que
-// !     PASARON por el lote, aunque su lote_id ya sea el del lote nuevo.
-// !  2. uq_evento_item_etapa no deja que un ítem pase dos veces por
-// !     Esterilización. Acá el historial tiene los dos eventos, cada uno
-// !     con el lote_id de su intento (columna provisoria en evento_item).
-// ! Los mismos ítems aparecen en el lote fallido y en el de reemplazo.
+// Reesterilización (migración 0007): el ítem tiene dos eventos de
+// Esterilización, uno por lote (evento_item.lote_id), e item.lote_id es el del
+// último. Los mismos ítems aparecen en el lote fallido y en el de reemplazo.
+// ! PROVISORIO: reemplazado_por y reemplaza_a no se guardan; el back tendría
+// ! que deducirlos de estos ítems.
 const itemsReesterilizados: ItemDelLote[] = [
   item({
     id: 8, recepcion_id: 6, material_id: 13, servicio_id: 2, metodo_id: 1, lote_id: 5,
@@ -348,15 +324,14 @@ const loteFallido: LoteDetalle = {
   operador_id: 3,
   inicio: momento(1, '09:00'),
   fin: momento(1, '09:40'),
+  resultado: 'fallido',
+  // Motivo: obligatorio cuando el lote falla (CHECK ck_lote_fallido_requiere_motivo)
+  observacion: 'El ciclo se cortó por caída de presión y el indicador químico no viró.',
   equipo: equipo(2),
   programa: programa(2),
   operador: operador(3),
-  ciclo: { numero_ciclo: '2231', temperatura_c: 128, tiempo_min: 40, resultado: 'fallido' },
-  reesterilizacion: {
-    motivo: 'El ciclo se cortó por caída de presión y el indicador químico no viró.',
-    lote_nuevo_id: 5,
-    lote_nuevo_numero: 14,
-  },
+  ciclo: { numero_ciclo: '2231', temperatura_c: 128, tiempo_min: 40 },
+  reemplazado_por: { id: 5, numero: 14 },
   reemplaza_a: null,
   items: itemsReesterilizados,
 }
@@ -369,11 +344,13 @@ const loteReemplazo: LoteDetalle = {
   operador_id: 1,
   inicio: momento(1, '11:00'),
   fin: momento(1, '12:10'),
+  resultado: 'aprobado',
+  observacion: null,
   equipo: equipo(1),
   programa: programa(2),
   operador: operador(1),
-  ciclo: { numero_ciclo: '1188', temperatura_c: 134, tiempo_min: 50, resultado: 'aprobado' },
-  reesterilizacion: null,
+  ciclo: { numero_ciclo: '1188', temperatura_c: 134, tiempo_min: 50 },
+  reemplazado_por: null,
   reemplaza_a: { id: 4, numero: 13 },
   items: itemsReesterilizados,
 }
@@ -387,11 +364,13 @@ const loteEnCurso: LoteDetalle = {
   operador_id: 2,
   inicio: haceMinutos(35),
   fin: null,
+  resultado: null,
+  observacion: null,
   equipo: equipo(1),
   programa: programa(1),
   operador: operador(2),
-  ciclo: { numero_ciclo: '1189', temperatura_c: null, tiempo_min: null, resultado: null },
-  reesterilizacion: null,
+  ciclo: { numero_ciclo: '1189', temperatura_c: null, tiempo_min: null },
+  reemplazado_por: null,
   reemplaza_a: null,
   items: [
     item({
