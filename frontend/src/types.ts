@@ -57,10 +57,20 @@ export interface Equipo {
 }
 
 // ? En el modelo, programa.metodo_id es provisorio (pendiente de validar con el servicio)
+// * Los parámetros son los programados en el equipo (informe del autoclave,
+// * fotos del 13/11/2026). El encabezado del ticket los repite.
+// ! PROVISORIO: temperatura_c, tiempo_esterilizacion_min, tiempo_secado_min,
+// ! vacio_bar, vapor_bar y pulsos todavía no existen: necesitan la migración 0008.
 export interface Programa {
   id: number
   nombre: string
   metodo_id: number
+  temperatura_c: number
+  tiempo_esterilizacion_min: number
+  tiempo_secado_min: number | null // null = sin dato para ese equipo
+  vacio_bar: number | null // presión negativa, ej.: -0.75
+  vapor_bar: number | null
+  pulsos: number | null // pulsos de vapor y vacío
 }
 
 export interface Etapa {
@@ -79,14 +89,6 @@ export interface Operador {
 
 // lote.resultado: null mientras el lote está en curso (CHECK ck_lote_resultado_valido)
 export type ResultadoLote = 'aprobado' | 'fallido'
-
-// ! PROVISORIO: datos del ticket impreso del equipo. Falta la foto del ticket
-// ! para confirmar qué trae; todavía no existen en el modelo.
-export interface DatosCiclo {
-  numero_ciclo: string // N.º de ciclo impreso en el ticket del equipo
-  temperatura_c: number | null
-  tiempo_min: number | null
-}
 
 // Referencia corta a otro lote (para el vínculo con el reemplazo)
 export interface LoteRef {
@@ -143,10 +145,12 @@ export interface LoteDetalle {
   fin: string | null
   resultado: ResultadoLote | null
   observacion: string | null // motivo, obligatorio si resultado es 'fallido'
+  // ! PROVISORIO: N.º de ciclo impreso en el ticket del equipo. La columna
+  // ! lote.numero_ciclo todavía no existe: necesita la migración 0008.
+  numero_ciclo: string | null
   equipo: Equipo
-  programa: Programa
+  programa: Programa // con sus parámetros: son los "datos del ciclo"
   operador: Operador
-  ciclo: DatosCiclo | null // ! provisorio: datos del ticket
   // ! PROVISORIO: el vínculo con el reemplazo no se guarda. El back lo deduce de
   // ! los ítems con dos eventos de Esterilización (uno por lote).
   reemplazado_por: LoteRef | null // este lote falló y su material pasó a este otro

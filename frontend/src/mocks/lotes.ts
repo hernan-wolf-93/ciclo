@@ -34,13 +34,47 @@ const EQUIPOS: Equipo[] = [
   { id: 5, nombre: 'Óxido de etileno 1', metodo_id: 3, metodo: metodo(3) },
 ]
 
+// * Parámetros reales del autoclave, tomados de las fotos de su panel
+// * (informe del autoclave, 13/11/2026).
+// ! Los parámetros de programa y los programas Líquidos y Priones necesitan
+// ! la migración 0008: hoy la base solo tiene nombre y metodo_id, y carga
+// ! Textil, Instrumental y Gomas.
 const PROGRAMAS: Programa[] = [
-  { id: 1, nombre: 'Textil 134 °C', metodo_id: 1 },
-  { id: 2, nombre: 'Instrumental 134 °C', metodo_id: 1 },
-  { id: 3, nombre: 'Gomas 121 °C', metodo_id: 1 },
-  // ? Confirmado por el servicio, pero todavía no está en la base:
-  // ? el DER lo prevé en la migración 0008.
-  { id: 4, nombre: 'Ciclo caliente 56 °C', metodo_id: 3 },
+  {
+    id: 1, nombre: 'Textil 134 °C', metodo_id: 1,
+    temperatura_c: 134, tiempo_esterilizacion_min: 10, tiempo_secado_min: 10,
+    vacio_bar: -0.75, vapor_bar: 1, pulsos: 2,
+  },
+  {
+    id: 2, nombre: 'Instrumental 134 °C', metodo_id: 1,
+    temperatura_c: 134, tiempo_esterilizacion_min: 20, tiempo_secado_min: 30,
+    vacio_bar: -0.75, vapor_bar: 1, pulsos: 1,
+  },
+  // ? En la base se llama "Gomas 121 °C"; en el panel del autoclave, "Termolábil".
+  // ? Falta confirmar con el servicio que son el mismo programa.
+  {
+    id: 3, nombre: 'Termolábil 121 °C', metodo_id: 1,
+    temperatura_c: 121, tiempo_esterilizacion_min: 20, tiempo_secado_min: 20,
+    vacio_bar: -0.75, vapor_bar: 0.8, pulsos: 2,
+  },
+  {
+    id: 4, nombre: 'Líquidos 121 °C', metodo_id: 1,
+    temperatura_c: 121, tiempo_esterilizacion_min: 20, tiempo_secado_min: 0,
+    vacio_bar: -0.4, vapor_bar: 0, pulsos: 0,
+  },
+  {
+    id: 5, nombre: 'Priones 134 °C', metodo_id: 1,
+    temperatura_c: 134, tiempo_esterilizacion_min: 60, tiempo_secado_min: 20,
+    vacio_bar: -0.75, vapor_bar: 1, pulsos: 2,
+  },
+  // ? Nombre confirmado por el servicio. El informe solo cubre el autoclave.
+  // ? Los 180 min salen de una foto del panel del equipo de óxido de etileno,
+  // ? que muestra "Ciclo 55°C" (no 56): falta confirmarlo. El resto, sin dato.
+  {
+    id: 6, nombre: 'Ciclo caliente 56 °C', metodo_id: 3,
+    temperatura_c: 56, tiempo_esterilizacion_min: 180, tiempo_secado_min: null,
+    vacio_bar: null, vapor_bar: null, pulsos: null,
+  },
 ]
 
 const ETAPAS: Etapa[] = [
@@ -163,7 +197,7 @@ const loteViejo: LoteDetalle = {
   equipo: equipo(1),
   programa: programa(3),
   operador: operador(3),
-  ciclo: { numero_ciclo: '0412', temperatura_c: 121, tiempo_min: 65 },
+  numero_ciclo: '0412',
   reemplazado_por: null,
   reemplaza_a: null,
   items: [
@@ -188,16 +222,16 @@ const loteOxido: LoteDetalle = {
   id: 2,
   numero: 11,
   equipo_id: 5,
-  programa_id: 4,
+  programa_id: 6,
   operador_id: 2,
   inicio: momento(4, '08:30'),
   fin: momento(4, '13:30'),
   resultado: 'aprobado',
   observacion: null,
   equipo: equipo(5),
-  programa: programa(4),
+  programa: programa(6),
   operador: operador(2),
-  ciclo: { numero_ciclo: '0087', temperatura_c: 56, tiempo_min: 300 },
+  numero_ciclo: '0087',
   reemplazado_por: null,
   reemplaza_a: null,
   items: [
@@ -248,7 +282,7 @@ const loteAutoclave: LoteDetalle = {
   equipo: equipo(1),
   programa: programa(1),
   operador: operador(1),
-  ciclo: { numero_ciclo: '1187', temperatura_c: 134, tiempo_min: 45 },
+  numero_ciclo: '1187',
   reemplazado_por: null,
   reemplaza_a: null,
   items: [
@@ -330,7 +364,7 @@ const loteFallido: LoteDetalle = {
   equipo: equipo(2),
   programa: programa(2),
   operador: operador(3),
-  ciclo: { numero_ciclo: '2231', temperatura_c: 128, tiempo_min: 40 },
+  numero_ciclo: '2231',
   reemplazado_por: { id: 5, numero: 14 },
   reemplaza_a: null,
   items: itemsReesterilizados,
@@ -349,7 +383,7 @@ const loteReemplazo: LoteDetalle = {
   equipo: equipo(1),
   programa: programa(2),
   operador: operador(1),
-  ciclo: { numero_ciclo: '1188', temperatura_c: 134, tiempo_min: 50 },
+  numero_ciclo: '1188',
   reemplazado_por: null,
   reemplaza_a: { id: 4, numero: 13 },
   items: itemsReesterilizados,
@@ -369,7 +403,7 @@ const loteEnCurso: LoteDetalle = {
   equipo: equipo(1),
   programa: programa(1),
   operador: operador(2),
-  ciclo: { numero_ciclo: '1189', temperatura_c: null, tiempo_min: null },
+  numero_ciclo: '1189',
   reemplazado_por: null,
   reemplaza_a: null,
   items: [

@@ -31,6 +31,16 @@ function hora(iso: string) {
 // El número de lote va del 1 al 999 y se reinicia: lo mostramos con dos cifras
 const numeroLote = (n: number) => String(n).padStart(2, '0')
 
+// Números con coma decimal, como en el panel del equipo: "-0,75", "134,0"
+function numero(n: number, decimales = 0) {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
+}
+
+// "30 min", "-0,75 bar" o "—" si el programa no tiene ese dato
+function conUnidad(n: number | null, unidad: string, decimales = 0) {
+  return n !== null ? `${numero(n, decimales)} ${unidad}` : '—'
+}
+
 // ---------------------------------------------------------------------------
 // Estado del lote: no se guarda, se deduce
 // ---------------------------------------------------------------------------
@@ -245,7 +255,7 @@ interface DetalleLoteProps {
 function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
   const aireacionLote = finAireacionLote(lote.equipo, lote.fin, lote.items.map((i) => i.servicio))
   const estado = ESTADOS[deducirEstado(lote.fin, lote.resultado, aireacionLote, ahora)]
-  const { ciclo, reemplazado_por, reemplaza_a } = lote
+  const { programa, reemplazado_por, reemplaza_a } = lote
 
   return (
     <Stack gap="lg">
@@ -309,22 +319,25 @@ function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
         <Text fw={700} size="lg" mb="sm">
           Datos del ciclo
         </Text>
+        {/* ! Provisorio: lote.numero_ciclo y los parámetros del programa necesitan la migración 0008 */}
         <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
-          {/* ! Provisorio: datos del ticket del equipo, falta confirmar qué trae */}
-          <Dato etiqueta="N.º de ciclo (ticket)" valor={ciclo?.numero_ciclo ?? '—'} />
-          <Dato
-            etiqueta="Temperatura"
-            valor={ciclo?.temperatura_c != null ? `${ciclo.temperatura_c} °C` : '—'}
-          />
-          <Dato etiqueta="Tiempo" valor={ciclo?.tiempo_min != null ? `${ciclo.tiempo_min} min` : '—'} />
+          <Dato etiqueta="N.º de ciclo (ticket)" valor={lote.numero_ciclo ?? '—'} />
           {/* lote.resultado */}
           <Dato etiqueta="Resultado" valor={lote.resultado ? ESTADOS[lote.resultado].texto : 'Pendiente'} />
         </SimpleGrid>
-        {!ciclo && (
-          <Text c="dimmed" mt="sm">
-            Todavía no se cargó el ticket del equipo.
-          </Text>
-        )}
+
+        {/* Parámetros del programa: el encabezado del ticket los repite */}
+        <Text fw={500} mt="md" mb="xs">
+          Parámetros del programa {programa.nombre}
+        </Text>
+        <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+          <Dato etiqueta="Temperatura" valor={`${numero(programa.temperatura_c, 1)} °C`} />
+          <Dato etiqueta="Tiempo de esterilización" valor={`${programa.tiempo_esterilizacion_min} min`} />
+          <Dato etiqueta="Tiempo de secado" valor={conUnidad(programa.tiempo_secado_min, 'min')} />
+          <Dato etiqueta="Nivel de vacío" valor={conUnidad(programa.vacio_bar, 'bar', 2)} />
+          <Dato etiqueta="Nivel de vapor" valor={conUnidad(programa.vapor_bar, 'bar', 2)} />
+          <Dato etiqueta="Pulsos de vapor y vacío" valor={programa.pulsos !== null ? String(programa.pulsos) : '—'} />
+        </SimpleGrid>
       </Paper>
 
       <section>
