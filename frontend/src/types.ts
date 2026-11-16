@@ -4,6 +4,7 @@
 export interface Servicio {
   id: number
   nombre: string
+  dias_aireacion: number // días de aireación de óxido de etileno según el origen (migración 0007)
 }
 
 export interface Material {
@@ -56,10 +57,20 @@ export interface Equipo {
 }
 
 // ? En el modelo, programa.metodo_id es provisorio (pendiente de validar con el servicio)
+// * Los parámetros son los programados en el equipo (informe del autoclave,
+// * fotos del 13/11/2026). El encabezado del ticket los repite.
+// ! PROVISORIO: temperatura_c, tiempo_esterilizacion_min, tiempo_secado_min,
+// ! vacio_bar, vapor_bar y pulsos todavía no existen: necesitan la migración 0008.
 export interface Programa {
   id: number
   nombre: string
   metodo_id: number
+  temperatura_c: number
+  tiempo_esterilizacion_min: number
+  tiempo_secado_min: number | null // null = sin dato para ese equipo
+  vacio_bar: number | null // presión negativa, ej.: -0.75
+  vapor_bar: number | null
+  pulsos: number | null // pulsos de vapor y vacío
 }
 
 export interface Etapa {
@@ -76,33 +87,26 @@ export interface Operador {
   numero_operador: string
 }
 
-// ! PROVISORIO: falta confirmar con el servicio qué datos trae el ticket
-// ! del equipo (pregunta 8). Todavía no existe en el modelo.
-export type ResultadoCiclo = 'aprobado' | 'fallido'
+// lote.resultado: null mientras el lote está en curso (CHECK ck_lote_resultado_valido)
+export type ResultadoLote = 'aprobado' | 'fallido'
 
-export interface DatosCiclo {
-  numero_ciclo: string // N.º de ciclo impreso en el ticket del equipo
-  temperatura_c: number | null
-  tiempo_min: number | null
-  resultado: ResultadoCiclo | null // null mientras el ciclo no terminó
-}
-
-// ! PROVISORIO: no existe en el modelo (ver "Reprocesamiento" en docs/DER.md)
-export interface Reesterilizacion {
-  motivo: string
-  lote_nuevo_id: number
-  lote_nuevo_numero: number
+// Referencia corta a otro lote (para el vínculo con el reemplazo)
+export interface LoteRef {
+  id: number
+  numero: number
 }
 
 // Una fila de la lista de lotes
 export interface LoteResumen {
   id: number
-  numero: number // ! se reinicia (01 a 999): puede repetirse, la fecha los distingue
+  numero: number // se reinicia (1 a 999) y puede repetirse: la fecha los distingue
   inicio: string
   fin: string | null
   equipo: Equipo
-  resultado: ResultadoCiclo | null // ! provisorio: sale de DatosCiclo
-  aireacion_fin_max: string | null // ! provisorio: la mayor aireacion_fin de sus ítems
+  resultado: ResultadoLote | null // lote.resultado
+  // * No se guarda: el back la deduce. Es la mayor fecha de fin de aireación de
+  // * sus ítems (lote.fin + servicio.dias_aireacion). null si no es óxido de etileno.
+  aireacion_fin_max: string | null
 }
 
 // Historial de un ítem: una fila de la tabla evento_item
@@ -111,9 +115,7 @@ export interface EventoItem {
   item_id: number
   etapa_id: number
   operador_id: number
-  // ! PROVISORIO: la columna todavía no existe en el modelo. Solo tiene valor
-  // ! en los eventos de Esterilización: vincula cada intento con su lote.
-  lote_id: number | null
+  lote_id: number | null // solo en Esterilización: el lote de cada intento
   fecha_hora: string
   etapa: Etapa
   operador: Operador
@@ -126,32 +128,37 @@ export interface ItemDelLote {
   recepcion_id: number
   material_id: number
   metodo_id: number | null
-  lote_id: number | null
+  lote_id: number | null // el lote de su último evento de Esterilización
   entrega_id: number | null
   material: Material
-  servicio: Servicio // servicio de origen (item.recepcion.servicio)
-  // ! PROVISORIO: solo óxido de etileno. Fin de la aireación de este ítem;
-  // ! los días dependen del servicio de origen. null = no lleva aireación.
-  aireacion_fin: string | null
+  servicio: Servicio // servicio de origen (item.recepcion.servicio), con dias_aireacion
   eventos: EventoItem[]
 }
 
 export interface LoteDetalle {
   id: number
-  numero: number // ! puede repetirse (ver LoteResumen)
+  numero: number // puede repetirse (ver LoteResumen)
   equipo_id: number
   programa_id: number
   operador_id: number
   inicio: string
   fin: string | null
+  resultado: ResultadoLote | null
+  observacion: string | null // motivo, obligatorio si resultado es 'fallido'
+  // ! PROVISORIO: N.º de ciclo impreso en el ticket del equipo. La columna
+  // ! lote.numero_ciclo todavía no existe: necesita la migración 0008.
+  numero_ciclo: string | null
   equipo: Equipo
-  programa: Programa
+  programa: Programa // con sus parámetros: son los "datos del ciclo"
   operador: Operador
-  ciclo: DatosCiclo | null // ! provisorio
-  reesterilizacion: Reesterilizacion | null // ! provisorio: este lote falló y se reemplazó
-  reemplaza_a: { id: number; numero: number } | null // ! provisorio: este es el lote de reemplazo
+  // ! PROVISORIO: el vínculo con el reemplazo no se guarda. El back lo deduce de
+  // ! los ítems con dos eventos de Esterilización (uno por lote).
+  reemplazado_por: LoteRef | null // este lote falló y su material pasó a este otro
+  reemplaza_a: LoteRef | null // este es el lote de reemplazo de uno que falló
+  // Ítems que pasaron por el lote: los de sus eventos de Esterilización
+  // (evento_item.lote_id), aunque hoy su item.lote_id sea el del lote de reemplazo
   items: ItemDelLote[]
 }
 
-// Estado que muestra la pantalla. No se guarda: se deduce de fin, ciclo y aireación.
+// Estado que muestra la pantalla. No se guarda: se deduce de fin, resultado y aireación.
 export type EstadoLote = 'en_curso' | 'en_aireacion' | 'aprobado' | 'fallido'

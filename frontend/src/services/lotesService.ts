@@ -1,5 +1,6 @@
 import { LOTES } from '../mocks/lotes'
 import type { LoteDetalle, LoteResumen } from '../types'
+import { finAireacionLote } from '../utils/aireacion'
 
 // * Por ahora todo devuelve datos de prueba. Cuando Lobo tenga la API,
 // * cambiamos solo el interior de estas funciones y la pantalla no se toca.
@@ -9,25 +10,23 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // Arma la fila de la lista a partir del detalle (en la API lo hará el back)
 function resumir(lote: LoteDetalle): LoteResumen {
-  // La aireación del lote termina cuando termina la del último ítem
-  const fines = lote.items
-    .map((i) => i.aireacion_fin)
-    .filter((f): f is string => f !== null)
-    .sort()
-
   return {
     id: lote.id,
     numero: lote.numero,
     inicio: lote.inicio,
     fin: lote.fin,
     equipo: lote.equipo,
-    resultado: lote.ciclo?.resultado ?? null,
-    aireacion_fin_max: fines.length > 0 ? fines[fines.length - 1] : null,
+    resultado: lote.resultado,
+    aireacion_fin_max: finAireacionLote(
+      lote.equipo,
+      lote.fin,
+      lote.items.map((i) => i.servicio),
+    ),
   }
 }
 
-// ! El número de lote se reinicia (01 a 999): buscar por número puede
-// ! devolver varios lotes. Vienen del más nuevo al más viejo.
+// El número de lote se reinicia (1 a 999): buscar por número puede
+// devolver varios lotes. Vienen del más nuevo al más viejo.
 export async function obtenerLotes(numero?: number): Promise<LoteResumen[]> {
   // TODO: GET /lotes?numero={numero}  (sin número: los más recientes)
   await esperar(300)

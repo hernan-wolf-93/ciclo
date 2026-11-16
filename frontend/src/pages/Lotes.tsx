@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Timeline, Title } from '@mantine/core'
 import { obtenerLote, obtenerLotes } from '../services/lotesService'
-import type { EstadoLote, EventoItem, ItemDelLote, LoteDetalle, LoteResumen, ResultadoCiclo } from '../types'
+import type { EstadoLote, EventoItem, ItemDelLote, LoteDetalle, LoteResumen, ResultadoLote } from '../types'
+import { finAireacion, finAireacionLote } from '../utils/aireacion'
 import styles from './Lotes.module.css'
 
 // ---------------------------------------------------------------------------
@@ -27,8 +28,18 @@ function hora(iso: string) {
   return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 }
 
-// ! El número de lote va del 01 al 999 y se reinicia: lo mostramos con dos cifras
+// El número de lote va del 1 al 999 y se reinicia: lo mostramos con dos cifras
 const numeroLote = (n: number) => String(n).padStart(2, '0')
+
+// Números con coma decimal, como en el panel del equipo: "-0,75", "134,0"
+function numero(n: number, decimales = 0) {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
+}
+
+// "30 min", "-0,75 bar" o "—" si el programa no tiene ese dato
+function conUnidad(n: number | null, unidad: string, decimales = 0) {
+  return n !== null ? `${numero(n, decimales)} ${unidad}` : '—'
+}
 
 // ---------------------------------------------------------------------------
 // Estado del lote: no se guarda, se deduce
@@ -43,21 +54,16 @@ const ESTADOS: Record<EstadoLote, { texto: string; color: string }> = {
 
 function deducirEstado(
   fin: string | null,
-  resultado: ResultadoCiclo | null,
+  resultado: ResultadoLote | null, // lote.resultado
   aireacionFin: string | null, // la mayor de sus ítems
   ahora: number,
 ): EstadoLote {
-  // Sin fin o sin resultado del ticket, el ciclo todavía no terminó
+  // lote.resultado es null mientras el lote está en curso
   if (fin === null || resultado === null) return 'en_curso'
   if (resultado === 'fallido') return 'fallido'
   // Sigue en aireación mientras algún ítem no la haya cumplido
   if (aireacionFin !== null && new Date(aireacionFin).getTime() > ahora) return 'en_aireacion'
   return 'aprobado'
-}
-
-function mayorAireacion(items: ItemDelLote[]): string | null {
-  const fines = items.map((i) => i.aireacion_fin).filter((f): f is string => f !== null).sort()
-  return fines.length > 0 ? fines[fines.length - 1] : null
 }
 
 // ---------------------------------------------------------------------------
@@ -247,8 +253,9 @@ interface DetalleLoteProps {
 }
 
 function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
-  const estado = ESTADOS[deducirEstado(lote.fin, lote.ciclo?.resultado ?? null, mayorAireacion(lote.items), ahora)]
-  const { ciclo, reesterilizacion, reemplaza_a } = lote
+  const aireacionLote = finAireacionLote(lote.equipo, lote.fin, lote.items.map((i) => i.servicio))
+  const estado = ESTADOS[deducirEstado(lote.fin, lote.resultado, aireacionLote, ahora)]
+  const { programa, reemplazado_por, reemplaza_a } = lote
 
   return (
     <Stack gap="lg">
@@ -264,14 +271,24 @@ function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
         </Badge>
       </Group>
 
-      {/* Reesterilización: este lote falló y su material pasó a otro */}
-      {reesterilizacion && (
-        <Alert color="red" variant="light" title="Lote fallido: el material se volvió a esterilizar">
-          <Text>Motivo: {reesterilizacion.motivo}</Text>
-          <Text>Lote nuevo: N.º {numeroLote(reesterilizacion.lote_nuevo_numero)}</Text>
-          <Button mt="sm" color="red" variant="light" onClick={() => onVerLote(reesterilizacion.lote_nuevo_id)}>
-            Ver lote N.º {numeroLote(reesterilizacion.lote_nuevo_numero)}
-          </Button>
+      {/* Lote fallido: motivo (lote.observacion) y, si ya se reesterilizó, el lote nuevo */}
+      {lote.resultado === 'fallido' && (
+        <Alert
+          color="red"
+          variant="light"
+          title={reemplazado_por ? 'Lote fallido: el material se volvió a esterilizar' : 'Lote fallido'}
+        >
+          <Text>Motivo: {lote.observacion}</Text>
+          {reemplazado_por ? (
+            <>
+              <Text>Lote nuevo: N.º {numeroLote(reemplazado_por.numero)}</Text>
+              <Button mt="sm" color="red" variant="light" onClick={() => onVerLote(reemplazado_por.id)}>
+                Ver lote N.º {numeroLote(reemplazado_por.numero)}
+              </Button>
+            </>
+          ) : (
+            <Text>El material todavía no se volvió a esterilizar.</Text>
+          )}
         </Alert>
       )}
 
@@ -298,24 +315,29 @@ function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
         </SimpleGrid>
       </Paper>
 
-      {/* ! Provisorio: falta confirmar con el servicio qué datos trae el ticket */}
       <Paper withBorder radius="md" p="md">
         <Text fw={700} size="lg" mb="sm">
           Datos del ciclo
         </Text>
-        {ciclo ? (
-          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
-            <Dato etiqueta="N.º de ciclo (ticket)" valor={ciclo.numero_ciclo} />
-            <Dato etiqueta="Temperatura" valor={ciclo.temperatura_c !== null ? `${ciclo.temperatura_c} °C` : '—'} />
-            <Dato etiqueta="Tiempo" valor={ciclo.tiempo_min !== null ? `${ciclo.tiempo_min} min` : '—'} />
-            <Dato
-              etiqueta="Resultado"
-              valor={ciclo.resultado ? ESTADOS[ciclo.resultado].texto : 'Pendiente'}
-            />
-          </SimpleGrid>
-        ) : (
-          <Text c="dimmed">Todavía no se cargó el ticket del equipo.</Text>
-        )}
+        {/* ! Provisorio: lote.numero_ciclo y los parámetros del programa necesitan la migración 0008 */}
+        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
+          <Dato etiqueta="N.º de ciclo (ticket)" valor={lote.numero_ciclo ?? '—'} />
+          {/* lote.resultado */}
+          <Dato etiqueta="Resultado" valor={lote.resultado ? ESTADOS[lote.resultado].texto : 'Pendiente'} />
+        </SimpleGrid>
+
+        {/* Parámetros del programa: el encabezado del ticket los repite */}
+        <Text fw={500} mt="md" mb="xs">
+          Parámetros del programa {programa.nombre}
+        </Text>
+        <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+          <Dato etiqueta="Temperatura" valor={`${numero(programa.temperatura_c, 1)} °C`} />
+          <Dato etiqueta="Tiempo de esterilización" valor={`${programa.tiempo_esterilizacion_min} min`} />
+          <Dato etiqueta="Tiempo de secado" valor={conUnidad(programa.tiempo_secado_min, 'min')} />
+          <Dato etiqueta="Nivel de vacío" valor={conUnidad(programa.vacio_bar, 'bar', 2)} />
+          <Dato etiqueta="Nivel de vapor" valor={conUnidad(programa.vapor_bar, 'bar', 2)} />
+          <Dato etiqueta="Pulsos de vapor y vacío" valor={programa.pulsos !== null ? String(programa.pulsos) : '—'} />
+        </SimpleGrid>
       </Paper>
 
       <section>
@@ -359,14 +381,14 @@ function ItemConHistorial({ item, lote, ahora }: ItemConHistorialProps) {
   // La etapa actual no se guarda: es la del último evento
   const ultimo = eventos.length > 0 ? eventos[eventos.length - 1] : null
 
-  // ! Provisorio (evento_item.lote_id no existe en el modelo): para mostrar el
-  // ! N.º de lote en cada Esterilización usamos los lotes que conoce el detalle:
-  // ! este, el de reemplazo y el que reemplaza. Si el back devuelve otro, va sin número.
+  // Cada evento de Esterilización trae su evento_item.lote_id. Para mostrar el
+  // N.º usamos los lotes que conoce el detalle: este, el de reemplazo y el que
+  // reemplaza. Si el back devuelve otro lote, el evento va sin número.
   const numerosDeLote = new Map<number, number>([[lote.id, lote.numero]])
-  if (lote.reesterilizacion) numerosDeLote.set(lote.reesterilizacion.lote_nuevo_id, lote.reesterilizacion.lote_nuevo_numero)
+  if (lote.reemplazado_por) numerosDeLote.set(lote.reemplazado_por.id, lote.reemplazado_por.numero)
   if (lote.reemplaza_a) numerosDeLote.set(lote.reemplaza_a.id, lote.reemplaza_a.numero)
-  // El lote que falló: este (si se reesterilizó) o el que reemplaza
-  const loteFallidoId = lote.reesterilizacion ? lote.id : lote.reemplaza_a?.id
+  // El lote que falló: este (si su resultado es fallido) o el que reemplaza
+  const loteFallidoId = lote.resultado === 'fallido' ? lote.id : lote.reemplaza_a?.id
 
   function tituloEvento(e: EventoItem) {
     const numero = e.lote_id !== null ? numerosDeLote.get(e.lote_id) : undefined
@@ -398,9 +420,9 @@ function ItemConHistorial({ item, lote, ahora }: ItemConHistorialProps) {
       <Aireacion item={item} lote={lote} ahora={ahora} />
 
       {/* El ítem pasó por este lote fallido, pero hoy está en el de reemplazo */}
-      {lote.reesterilizacion && item.lote_id !== lote.id && (
+      {lote.reemplazado_por && item.lote_id !== lote.id && (
         <Text c="red" fw={500} mb="xs">
-          Reesterilizado en el lote N.º {numeroLote(lote.reesterilizacion.lote_nuevo_numero)}
+          Reesterilizado en el lote N.º {numeroLote(lote.reemplazado_por.numero)}
         </Text>
       )}
 
@@ -417,19 +439,19 @@ function ItemConHistorial({ item, lote, ahora }: ItemConHistorialProps) {
   )
 }
 
-// ! Provisorio: la aireación es por ítem y sus días dependen del servicio de origen
+// La aireación es por ítem: lote.fin + servicio.dias_aireacion de su servicio de origen
 function Aireacion({ item, lote, ahora }: ItemConHistorialProps) {
-  if (item.aireacion_fin === null || lote.fin === null) return null
+  const finIso = finAireacion(lote.equipo, lote.fin, item.servicio)
+  if (finIso === null) return null
 
-  const fin = new Date(item.aireacion_fin).getTime()
-  const dias = Math.round((fin - new Date(lote.fin).getTime()) / 86_400_000)
-  const cumplida = fin <= ahora
+  const dias = item.servicio.dias_aireacion
+  const cumplida = new Date(finIso).getTime() <= ahora
 
   return (
     <Text c={cumplida ? 'green' : 'orange'} fw={500} mb="xs">
       {cumplida
-        ? `Aireación cumplida (${dias} días) el ${fechaHora(item.aireacion_fin)} h`
-        : `En aireación hasta el ${fechaHora(item.aireacion_fin)} h (${dias} días)`}
+        ? `Aireación cumplida (${dias} días) el ${fechaHora(finIso)} h`
+        : `En aireación hasta el ${fechaHora(finIso)} h (${dias} días)`}
     </Text>
   )
 }

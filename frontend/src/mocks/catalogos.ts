@@ -1,16 +1,19 @@
 import type { Material, Servicio } from '../types'
 
-// * Mismos servicios que la migración 0004 del back
+// * Mismos servicios que la migración 0004 del back.
+// * dias_aireacion (migración 0007): 3 por defecto.
+// ? Neonatología 10 y Pediatría 7 los confirmó la jefa del servicio, pero en la
+// ? base todavía están en 3: el DER los prevé en la migración 0008.
 export const SERVICIOS: Servicio[] = [
-  { id: 1, nombre: 'Quirófano' },
-  { id: 2, nombre: 'Neonatología' },
-  { id: 3, nombre: 'Guardia' },
-  { id: 4, nombre: 'Pediatría' },
-  { id: 5, nombre: 'Consultorios' },
-  { id: 6, nombre: 'Aguilares' },
-  { id: 7, nombre: 'Monteros' },
-  { id: 8, nombre: 'Otro' },
-  { id: 9, nombre: 'Unidad de Terapia Intensiva' },
+  { id: 1, nombre: 'Quirófano', dias_aireacion: 3 },
+  { id: 2, nombre: 'Neonatología', dias_aireacion: 10 },
+  { id: 3, nombre: 'Guardia', dias_aireacion: 3 },
+  { id: 4, nombre: 'Pediatría', dias_aireacion: 7 },
+  { id: 5, nombre: 'Consultorios', dias_aireacion: 3 },
+  { id: 6, nombre: 'Aguilares', dias_aireacion: 3 },
+  { id: 7, nombre: 'Monteros', dias_aireacion: 3 },
+  { id: 8, nombre: 'Otro', dias_aireacion: 3 },
+  { id: 9, nombre: 'Unidad de Terapia Intensiva', dias_aireacion: 3 },
 ]
 
 // ? Los materiales todavía no están cargados en el back (la rama de Lobo
