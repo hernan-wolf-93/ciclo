@@ -1,5 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
+import RutaProtegida from './auth/RutaProtegida'
+import Login from './pages/Login'
 import Tablero from './pages/Tablero'
 import Recepcion from './pages/Recepcion'
 import Esterilizacion from './pages/Esterilizacion'
@@ -9,12 +11,15 @@ import Entrega from './pages/Entrega'
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<Tablero />} />
-        <Route path="recepcion" element={<Recepcion />} />
-        <Route path="esterilizacion" element={<Esterilizacion />} />
-        <Route path="lotes" element={<Lotes />} />
-        <Route path="entrega" element={<Entrega />} />
+      <Route path="login" element={<Login />} />
+      <Route element={<RutaProtegida />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<Tablero />} />
+          <Route path="recepcion" element={<Recepcion />} />
+          <Route path="esterilizacion" element={<Esterilizacion />} />
+          <Route path="lotes" element={<Lotes />} />
+          <Route path="entrega" element={<Entrega />} />
+        </Route>
       </Route>
     </Routes>
   )

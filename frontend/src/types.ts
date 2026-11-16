@@ -162,3 +162,9 @@ export interface LoteDetalle {
 
 // Estado que muestra la pantalla. No se guarda: se deduce de fin, resultado y aireación.
 export type EstadoLote = 'en_curso' | 'en_aireacion' | 'aprobado' | 'fallido'
+// Operador con sesión iniciada (respuesta de GET /auth/me)
+export interface Usuario {
+  id: number
+  numero_operador: string
+  rol: string // 'Administrador principal' | 'Administrador secundario' | 'Operador'
+}
