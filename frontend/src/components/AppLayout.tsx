@@ -1,10 +1,12 @@
 import type { CSSProperties } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { pantallas } from '../routes'
+import { useAuth } from '../auth/useAuth'
 import styles from './AppLayout.module.css'
 
 export default function AppLayout() {
   const { pathname } = useLocation()
+  const { usuario, salir } = useAuth()
   const actual = pantallas.find((p) => p.path === pathname)
 
   const estiloFranja: CSSProperties | undefined = actual?.area
@@ -31,7 +33,10 @@ export default function AppLayout() {
         </nav>
         <div className={styles.derecha}>
           <span>Guardia de 7 a 19 h</span>
-          <span className={styles.operador}>Operador</span>
+          <span className={styles.operador}>Operador {usuario?.numero_operador}</span>
+          <button type="button" onClick={salir}>
+            Salir
+          </button>
         </div>
       </header>
 
