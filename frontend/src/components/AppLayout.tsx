@@ -18,18 +18,20 @@ export default function AppLayout() {
       <header className={styles.header}>
         <span className={styles.logo}>Ciclo</span>
         <nav className={styles.nav}>
-          {pantallas.map((p) => (
-            <NavLink
-              key={p.path}
-              to={p.path}
-              end
-              className={({ isActive }) =>
-                isActive ? `${styles.link} ${styles.activo}` : styles.link
-              }
-            >
-              {p.label}
-            </NavLink>
-          ))}
+          {pantallas
+            .filter((p) => !p.soloAdmin || usuario?.rol !== 'Operador')
+            .map((p) => (
+              <NavLink
+                key={p.path}
+                to={p.path}
+                end
+                className={({ isActive }) =>
+                  isActive ? `${styles.link} ${styles.activo}` : styles.link
+                }
+              >
+                {p.label}
+              </NavLink>
+            ))}
         </nav>
         <div className={styles.derecha}>
           <span>Guardia de 7 a 19 h</span>

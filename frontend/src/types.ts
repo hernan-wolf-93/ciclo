@@ -168,3 +168,18 @@ export interface Usuario {
   numero_operador: string
   rol: string // 'Administrador principal' | 'Administrador secundario' | 'Operador'
 }
+
+// ---------------------------------------------------------------------------
+// Usuarios (ABM de operadores, solo administradores)
+// ---------------------------------------------------------------------------
+export interface Rol {
+  id: number
+  nombre: string
+}
+
+export interface UsuarioAdmin {
+  id: number
+  numero_operador: string
+  rol: string // nombre del rol
+  activo: boolean
+}

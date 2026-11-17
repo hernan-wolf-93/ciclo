@@ -8,6 +8,7 @@ export interface Pantalla {
   label: string
   area?: Area
   franja?: string
+  soloAdmin?: boolean // solo la ven los administradores
 }
 
 export const pantallas: Pantalla[] = [
@@ -31,4 +32,5 @@ export const pantallas: Pantalla[] = [
     area: 'verde',
     franja: 'Área verde: entrega por ventanilla',
   },
+  { path: '/usuarios', label: 'Usuarios', soloAdmin: true },
 ]
