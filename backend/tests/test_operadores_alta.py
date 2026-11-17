@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 
 from app.core.roles import ROL_ADMIN_PRINCIPAL, ROL_ADMIN_SECUNDARIO, ROL_OPERADOR
 from app.core.seguridad import crear_token, verificar_contrasena
-from app.models import Operador, Rol
+from app.models import Operador
 from app.schemas.operador import OperadorAltaIn
 from app.services.operadores import (
     NumeroDuplicado,
@@ -14,13 +14,6 @@ from app.services.operadores import (
 PRINCIPAL, SECUNDARIO, OPERADOR = 1, 2, 3
 NOMBRE_DE_ROL = {PRINCIPAL: ROL_ADMIN_PRINCIPAL, SECUNDARIO: ROL_ADMIN_SECUNDARIO, OPERADOR: ROL_OPERADOR}
 CONTRASENA = "clave-segura-1"
-
-
-@pytest.fixture(autouse=True)
-def _rol_secundario(db):
-    """La base de prueba trae los roles 1 y 3: se agrega el 2 para todo este archivo."""
-    db.add(Rol(id=SECUNDARIO, nombre=ROL_ADMIN_SECUNDARIO))
-    db.commit()
 
 
 def _auth(operador):

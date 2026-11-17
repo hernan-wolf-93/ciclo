@@ -41,6 +41,7 @@ def db():
     sesion.add_all(
         [
             Rol(id=1, nombre="Administrador principal"),
+            Rol(id=2, nombre="Administrador secundario"),
             Rol(id=3, nombre="Operador"),
         ]
     )

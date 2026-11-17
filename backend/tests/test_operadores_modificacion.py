@@ -1,17 +1,9 @@
 import pytest
 
-from app.core.roles import ROL_ADMIN_SECUNDARIO, ROL_OPERADOR
+from app.core.roles import ROL_ADMIN_SECUNDARIO
 from app.core.seguridad import crear_token
-from app.models import Rol
 
 PRINCIPAL, SECUNDARIO, OPERADOR = 1, 2, 3
-
-
-@pytest.fixture(autouse=True)
-def _rol_secundario(db):
-    """La base de prueba trae los roles 1 y 3: se agrega el 2 para todo este archivo."""
-    db.add(Rol(id=SECUNDARIO, nombre=ROL_ADMIN_SECUNDARIO))
-    db.commit()
 
 
 def _auth(operador):

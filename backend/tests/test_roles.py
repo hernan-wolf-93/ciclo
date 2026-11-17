@@ -5,20 +5,12 @@ from fastapi.testclient import TestClient
 from app.api.deps import exigir_administrador, obtener_db, requerir_roles
 from app.core.roles import ROL_ADMIN_PRINCIPAL
 from app.core.seguridad import crear_token
-from app.models import Rol
 
 # Ids de rol en la base de prueba de SQLite (el 2 lo agrega el fixture de abajo).
 PRINCIPAL, SECUNDARIO, OPERADOR = 1, 2, 3
 
-
 @pytest.fixture
-def rol_secundario(db):
-    db.add(Rol(id=SECUNDARIO, nombre="Administrador secundario"))
-    db.commit()
-
-
-@pytest.fixture
-def cliente_roles(db, rol_secundario):
+def cliente_roles(db):
     """App mínima con dos rutas protegidas, para probar la dependencia sola."""
     app = FastAPI()
 
