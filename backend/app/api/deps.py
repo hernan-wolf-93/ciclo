@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.core.seguridad import leer_token
+from app.core.roles import ROLES_ADMINISTRADORES
 from app.models import Operador
 
 # auto_error=False: el error 401 lo armamos nosotros, con un mensaje único.
@@ -42,3 +43,26 @@ def obtener_operador_actual(
     if operador is None or not operador.activo:
         raise no_autorizado
     return operador
+
+def requerir_roles(*roles_permitidos: str) -> Callable[..., Operador]:
+    """Crea una dependencia que deja pasar solo a los operadores con alguno de esos roles.
+
+    Responde 401 si no hay sesión válida (lo resuelve obtener_operador_actual) y
+    403 si hay sesión pero el rol no alcanza. El rol se lee de la base en cada
+    pedido, así que un cambio de rol o una baja valen de inmediato.
+    """
+
+    def dependencia(
+        operador: Annotated[Operador, Depends(obtener_operador_actual)],
+    ) -> Operador:
+        if operador.rol.nombre not in roles_permitidos:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permiso para realizar esta acción",
+            )
+        return operador
+
+    return dependencia
+
+
+exigir_administrador = requerir_roles(*ROLES_ADMINISTRADORES)
