@@ -30,6 +30,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 17/11/2026 | Lobo | Generar número de lote | Regla y consulta para proponer el número de lote por método (1 a 999, con reinicio) y 15 pruebas. | #24 |
 | 17/11/2026 | Lobo | API de login y roles (JWT): CORS | CORS configurable por variable de entorno y 6 pruebas. | #22 |
 | 17/11/2026 | Lobo | ABM de usuarios y roles (API) | Autorización por rol y endpoints de alta, listado, modificación y baja lógica de operadores y roles asignables, con la matriz de permisos en un solo lugar y protecciones de baja y de administrador principal (166 pruebas) (PR #21). |
 | 14/11/2026 | Lobo | Reglas de flujo por etapas | Reglas de transición entre etapas (validar_transicion, situacion_del_item y validar_avance) con 28 pruebas nuevas, 85 en total, sin cambios de esquema (PR #17). | 
