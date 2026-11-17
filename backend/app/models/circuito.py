@@ -64,7 +64,8 @@ class Entrega(Base):
 
 class Lote(Base):
     """Paquete que entra a un equipo de esterilización. El método se obtiene
-    del equipo, no se guarda acá. Provisorio: la regla de numeración."""
+    del equipo, no se guarda acá. El número va de 1 a 999 y se repite (reinicia
+    y es por método): la propuesta del siguiente está en services/numeracion_lote.py."""
 
     __tablename__ = "lote"
     __table_args__ = (
