@@ -12,10 +12,9 @@ from getpass import getpass
 from sqlalchemy import select
 
 from app.core.database import SessionLocal
+from app.core.reglas_operador import LARGO_MAXIMO_NUMERO, LARGO_MINIMO_CONTRASENA, numero_valido
 from app.core.seguridad import hashear_contrasena
 from app.models import Operador, Rol
-
-LARGO_MINIMO_CONTRASENA = 8  # provisorio, a validar con el servicio
 
 
 def main() -> int:
@@ -26,8 +25,8 @@ def main() -> int:
             return 1
 
         numero = input("Número de operador: ").strip()
-        if not numero or " " in numero or len(numero) > 20:
-            print("El número debe tener entre 1 y 20 caracteres, sin espacios.")
+        if not numero_valido(numero):
+            print(f"El número debe tener entre 1 y {LARGO_MAXIMO_NUMERO} caracteres, sin espacios.")
             return 1
         if db.scalar(select(Operador).where(Operador.numero_operador == numero)):
             print("Ya existe un operador con ese número.")
