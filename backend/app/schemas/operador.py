@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.reglas_operador import (
     LARGO_MAXIMO_CONTRASENA,
@@ -32,3 +32,17 @@ class OperadorAdminOut(BaseModel):
 class RolOut(BaseModel):
     id: int
     nombre: str
+    
+class OperadorModificarIn(BaseModel):
+    """Cambios permitidos sobre un operador. El número de operador no se modifica."""
+
+    model_config = ConfigDict(extra="forbid")  # un campo desconocido (ej. el número) da 422
+
+    rol_id: int | None = None
+    activo: bool | None = None
+
+    @model_validator(mode="after")
+    def al_menos_un_cambio(self):
+        if self.rol_id is None and self.activo is None:
+            raise ValueError("Hay que indicar al menos un cambio: rol_id o activo")
+        return self
