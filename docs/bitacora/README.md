@@ -30,6 +30,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 17/11/2026 | Lobo | ABM de usuarios y roles (API) | Autorización por rol y endpoints de alta, listado, modificación y baja lógica de operadores y roles asignables, con la matriz de permisos en un solo lugar y protecciones de baja y de administrador principal (166 pruebas) (PR #21). |
 | 14/11/2026 | Lobo | Reglas de flujo por etapas | Reglas de transición entre etapas (validar_transicion, situacion_del_item y validar_avance) con 28 pruebas nuevas, 85 en total, sin cambios de esquema (PR #17). | 
 | 12/11/2026 | Lobo | Registrar recepción (API) | POST /recepciones con ítems por unidad y evento de Recepción firmado por el operador del token, y base PostgreSQL de pruebas (57 pruebas) (PR #16). |
 | 12/11/2026 | Lobo | Agregar enlace en bitacora y arreglar DER | Actualizo enlace restringido de la bitacora en google docx. Y correcciones de numeros de PR en archivo DER. (PR #15). |
