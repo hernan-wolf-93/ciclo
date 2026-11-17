@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth, lotes, operadores, recepciones
+from app.api import auth, lotes, operadores, recepciones, roles
 
 app = FastAPI(
     title="CICLO",
@@ -9,6 +9,7 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(operadores.router)
+app.include_router(roles.router)
 app.include_router(recepciones.router)
 app.include_router(lotes.router)
 

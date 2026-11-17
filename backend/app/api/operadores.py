@@ -11,9 +11,29 @@ from app.services.operadores import (
     NumeroDuplicado,
     SinPermiso,
     dar_de_alta_operador,
+    listar_operadores,
 )
 
 router = APIRouter(prefix="/operadores", tags=["operadores"])
+
+
+def _salida(operador: Operador) -> OperadorAdminOut:
+    return OperadorAdminOut(
+        id=operador.id,
+        numero_operador=operador.numero_operador,
+        rol=operador.rol.nombre,
+        activo=operador.activo,
+    )
+
+
+@router.get("", response_model=list[OperadorAdminOut])
+def listar(
+    _: Annotated[Operador, Depends(exigir_administrador)],
+    db: Annotated[Session, Depends(obtener_db)],
+    activo: bool | None = None,
+):
+    """Lista de operadores. Con ?activo=true o ?activo=false se filtra por estado."""
+    return [_salida(operador) for operador in listar_operadores(db, activo)]
 
 
 @router.post("", response_model=OperadorAdminOut, status_code=status.HTTP_201_CREATED)
@@ -30,10 +50,5 @@ def crear(
     except NumeroDuplicado as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     except ErrorDeOperadores as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-    return OperadorAdminOut(
-        id=nuevo.id,
-        numero_operador=nuevo.numero_operador,
-        rol=nuevo.rol.nombre,
-        activo=nuevo.activo,
-    )
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return _salida(nuevo)

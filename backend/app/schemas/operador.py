@@ -28,3 +28,7 @@ class OperadorAdminOut(BaseModel):
     numero_operador: str
     rol: str
     activo: bool
+    
+class RolOut(BaseModel):
+    id: int
+    nombre: str

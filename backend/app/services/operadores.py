@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.roles import ROL_ADMIN_PRINCIPAL, ROL_ADMIN_SECUNDARIO, ROL_OPERADOR
 from app.core.seguridad import hashear_contrasena
@@ -63,3 +63,16 @@ def dar_de_alta_operador(db: Session, actor: Operador, datos: OperadorAltaIn) ->
         db.rollback()
         raise
     return nuevo
+
+def listar_operadores(db: Session, activo: bool | None = None) -> list[Operador]:
+    """Operadores ordenados por id. Con activo se filtra por estado (baja lógica)."""
+    consulta = select(Operador).options(selectinload(Operador.rol)).order_by(Operador.id)
+    if activo is not None:
+        consulta = consulta.where(Operador.activo.is_(activo))
+    return list(db.scalars(consulta))
+
+
+def listar_roles_asignables(db: Session, actor: Operador) -> list[Rol]:
+    """Roles que el actor puede dar a otros, ordenados por id."""
+    nombres = roles_que_puede_asignar(actor)
+    return list(db.scalars(select(Rol).where(Rol.nombre.in_(nombres)).order_by(Rol.id)))
