@@ -30,6 +30,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 20/11/2026 | Lobo | API de avance de lavado y empaque | POST /avances pasa ítems a Lavado o Empaque, por línea con cantidad, todo o nada y firmado por el operador del token. Migración 0008 con observacion y solo_desinfeccion en evento_item. Validación del avance de varios ítems con una sola consulta. (PR #26). |
 | 20/11/2026 | Lobo | Generar número de lote (numeración por equipo) | La propuesta del número de lote pasa a ser por equipo y no por método. Se ajustan 3 pruebas y la docstring de Lote. Sin migración. (PR #25). |
 | 17/11/2026 | Lobo | Generar número de lote | Regla y consulta para proponer el número de lote por método (1 a 999, con reinicio) y 15 pruebas. | #24 |
 | 17/11/2026 | Lobo | API de login y roles (JWT): CORS | CORS configurable por variable de entorno y 6 pruebas. | #22 |
