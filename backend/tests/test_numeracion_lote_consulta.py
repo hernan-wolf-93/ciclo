@@ -34,7 +34,7 @@ def _crear_lote(db, equipo, operador, numero):
     return lote
 
 
-def test_sin_lotes_del_metodo_propone_1(db_pg, equipos):
+def test_sin_lotes_del_equipo_propone_1(db_pg, equipos):
     assert proponer_numero(db_pg, equipos["a"].id) == 1
 
 
@@ -55,12 +55,13 @@ def test_el_ultimo_es_el_de_mayor_id_y_no_el_de_mayor_numero(db_pg, equipos, ope
     assert proponer_numero(db_pg, equipos["a"].id) == 4
 
 
-def test_equipos_del_mismo_metodo_comparten_numeracion(db_pg, equipos, operador):
+def test_equipos_del_mismo_metodo_tienen_numeracion_propia(db_pg, equipos, operador):
     _crear_lote(db_pg, equipos["a"], operador, 7)
-    assert proponer_numero(db_pg, equipos["b"].id) == 8
+    assert proponer_numero(db_pg, equipos["a"].id) == 8
+    assert proponer_numero(db_pg, equipos["b"].id) == 1
 
 
-def test_otro_metodo_tiene_su_propia_numeracion(db_pg, equipos, operador):
+def test_equipo_de_otro_metodo_tiene_su_propia_numeracion(db_pg, equipos, operador):
     _crear_lote(db_pg, equipos["a"], operador, 7)
     assert proponer_numero(db_pg, equipos["otro"].id) == 1
 
