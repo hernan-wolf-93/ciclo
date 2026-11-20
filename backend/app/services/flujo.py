@@ -7,7 +7,7 @@ situacion_del_item y validar_avance consultan el historial del ítem.
 
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Etapa, EventoItem, Lote
@@ -97,3 +97,52 @@ def validar_avance(db: Session, item_id: int, orden_destino: int) -> None:
     """Lanza ErrorDeFlujo si el ítem no puede pasar a la etapa de destino."""
     situacion = situacion_del_item(db, item_id)
     validar_transicion(situacion.orden_etapa, orden_destino, situacion.resultado_ultimo_lote)
+    
+def situaciones_de_items(db: Session, item_ids: list[int]) -> dict[int, SituacionItem]:
+    """Situación de varios ítems con una sola consulta.
+
+    Para cada ítem se toma su último evento (el de mayor id). Lanza ErrorDeFlujo
+    si algún ítem no existe o no tiene historial. Devuelve el resultado ordenado
+    por id, de modo que el primer error al validar sea siempre el mismo.
+    """
+    ids = sorted(set(item_ids))
+    if not ids:
+        return {}
+
+    ultimos = (
+        select(func.max(EventoItem.id).label("id"))
+        .where(EventoItem.item_id.in_(ids))
+        .group_by(EventoItem.item_id)
+        .subquery()
+    )
+    filas = db.execute(
+        select(EventoItem.item_id, Etapa.orden, Lote.resultado)
+        .select_from(EventoItem)
+        .join(ultimos, ultimos.c.id == EventoItem.id)
+        .join(Etapa, Etapa.id == EventoItem.etapa_id)
+        .outerjoin(Lote, Lote.id == EventoItem.lote_id)
+    ).all()
+
+    por_item = {
+        fila.item_id: SituacionItem(orden_etapa=fila.orden, resultado_ultimo_lote=fila.resultado)
+        for fila in filas
+    }
+    faltantes = [i for i in ids if i not in por_item]
+    if faltantes:
+        raise ErrorDeFlujo(f"El ítem {faltantes[0]} no existe o no tiene historial")
+    return {i: por_item[i] for i in ids}
+
+
+def validar_avance_varios(db: Session, item_ids: list[int], orden_destino: int) -> None:
+    """Lanza ErrorDeFlujo si algún ítem no puede pasar a la etapa de destino.
+
+    El mensaje indica qué ítem falló, para que el servicio pueda rechazar el
+    pedido completo (todo o nada) con una explicación clara.
+    """
+    for item_id, situacion in situaciones_de_items(db, item_ids).items():
+        try:
+            validar_transicion(
+                situacion.orden_etapa, orden_destino, situacion.resultado_ultimo_lote
+            )
+        except ErrorDeFlujo as error:
+            raise ErrorDeFlujo(f"Ítem {item_id}: {error}") from error
