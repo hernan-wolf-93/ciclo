@@ -138,6 +138,15 @@ class EventoItem(Base):
             name="uq_evento_item_etapa_lote",
             postgresql_nulls_not_distinct=True,
         ),
+        CheckConstraint(
+            "NOT solo_desinfeccion OR "
+            "(observacion IS NOT NULL AND length(btrim(observacion)) > 0)",
+            name="ck_evento_item_excepcion_requiere_observacion",
+        ),
+    )
+    observacion: Mapped[str | None] = mapped_column(Text)
+    solo_desinfeccion: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false")
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
