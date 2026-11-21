@@ -48,6 +48,7 @@ número del PR.
 | 11/11/2026 | Mara | Catálogos iniciales | Migración 0004: servicios, regla NEO–UTI y programas provisorios (PR #3). |
 | 10/11/2026 | Lobo | Modelo de datos | Modelo de 14 tablas hasta 3FN, migraciones y DER (PR #2). |
 | 10/11/2026 | Lobo | Definir stack y repositorio | Repositorio, reglas de equipo y protección de `main` (PR #1). |
+| 21/11/2026 | Mara | Recepción: material por servicio (catálogo oficial) | Recepción muestra solo los materiales del servicio elegido, en dos grupos (autoclave y estufa / óxido de etileno), y no muestra lo que solo se entrega. Cantidades en cero al cambiar de servicio. Datos de prueba. (PR #N). |
 
 ## Pruebas automáticas
 
