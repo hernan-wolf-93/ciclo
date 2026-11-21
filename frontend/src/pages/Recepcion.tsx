@@ -5,7 +5,9 @@ import type { Material, RecepcionCreada, Servicio } from '../types'
 
 export default function Recepcion() {
   const [servicios, setServicios] = useState<Servicio[]>([])
-  const [materiales, setMateriales] = useState<Material[]>([])
+  // * Materiales del servicio elegido. Guardamos de qué servicio son, así nunca se
+  // * muestran los de otro si se toca otro botón rápido.
+  const [catalogo, setCatalogo] = useState<{ servicioId: number; materiales: Material[] } | null>(null)
   const [servicioId, setServicioId] = useState<number | null>(null)
 
   // * Cuántas unidades hay de cada material, por id. Ej: { 3: 2, 12: 1 }
@@ -24,11 +26,21 @@ export default function Recepcion() {
   const [error, setError] = useState('')
   const [registrada, setRegistrada] = useState<RecepcionCreada | null>(null)
 
-  // Al entrar a la pantalla traemos los catálogos (por ahora, del mock)
+  // Al entrar a la pantalla traemos los servicios (por ahora, del mock)
   useEffect(() => {
     obtenerServicios().then(setServicios)
-    obtenerMateriales().then(setMateriales)
   }, [])
+
+  // Al elegir un servicio traemos SUS materiales y borramos lo cargado antes
+  function elegirServicio(id: number) {
+    setServicioId(id)
+    setCantidades({})
+    obtenerMateriales(id).then((lista) => setCatalogo({ servicioId: id, materiales: lista }))
+  }
+
+  const materiales = catalogo?.servicioId === servicioId ? catalogo.materiales : []
+  const materialesCalor = materiales.filter((m) => m.seccion !== 'oxido')
+  const materialesOxido = materiales.filter((m) => m.seccion === 'oxido')
 
   // Suma o resta unidades de un material (diferencia = +1 o -1)
   function cambiarCantidad(materialId: number, diferencia: number) {
@@ -82,6 +94,7 @@ export default function Recepcion() {
       // Limpiamos el formulario para la próxima carga.
       // El operador queda, porque suele ser la misma persona cargando varias.
       setServicioId(null)
+      setCatalogo(null)
       setCantidades({})
       setPiezas('')
       setObservacion('')
@@ -95,6 +108,52 @@ export default function Recepcion() {
 
   // Para mostrar el nombre del servicio en la confirmación
   const servicioRegistrado = servicios.find((s) => s.id === registrada?.servicio_id)
+
+  // Una tarjeta de material con sus botones − y +
+  function tarjetaMaterial(m: Material) {
+    const cantidad = cantidades[m.id] ?? 0
+
+    return (
+      <Paper
+        key={m.id}
+        withBorder
+        p="sm"
+        radius="md"
+        bg={cantidad > 0 ? '#fdecea' : 'white'} // se marca rosadito si tiene unidades
+      >
+        <Group justify="space-between" wrap="nowrap">
+          <Text fw={700}>{m.nombre}</Text>
+
+          <Group gap="xs" wrap="nowrap">
+            <ActionIcon
+              size="xl"
+              fz={22}
+              variant="default"
+              disabled={cantidad === 0}
+              onClick={() => cambiarCantidad(m.id, -1)}
+              aria-label={`Quitar una unidad de ${m.nombre}`}
+            >
+              −
+            </ActionIcon>
+
+            <Text fw={700} size="xl" w={32} ta="center">
+              {cantidad}
+            </Text>
+
+            <ActionIcon
+              size="xl"
+              fz={22}
+              color="var(--rojo)"
+              onClick={() => cambiarCantidad(m.id, 1)}
+              aria-label={`Agregar una unidad de ${m.nombre}`}
+            >
+              +
+            </ActionIcon>
+          </Group>
+        </Group>
+      </Paper>
+    )
+  }
 
   return (
     <Stack gap="xl" maw={900}>
@@ -114,7 +173,7 @@ export default function Recepcion() {
               py="md"
               color="var(--rojo)"
               variant={servicioId === s.id ? 'filled' : 'default'}
-              onClick={() => setServicioId(s.id)}
+              onClick={() => elegirServicio(s.id)}
               styles={{ label: { whiteSpace: 'normal' } }} // para que "Unidad de Terapia Intensiva" no se corte
             >
               {s.nombre}
@@ -128,52 +187,33 @@ export default function Recepcion() {
         <Text fw={700} size="lg" mb="sm">
           2. Material recibido
         </Text>
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-          {materiales.map((m) => {
-            const cantidad = cantidades[m.id] ?? 0
 
-            return (
-              <Paper
-                key={m.id}
-                withBorder
-                p="sm"
-                radius="md"
-                bg={cantidad > 0 ? '#fdecea' : 'white'} // se marca rosadito si tiene unidades
-              >
-                <Group justify="space-between" wrap="nowrap">
-                  <Text fw={700}>{m.nombre}</Text>
-
-                  <Group gap="xs" wrap="nowrap">
-                    <ActionIcon
-                      size="xl"
-                      fz={22}
-                      variant="default"
-                      disabled={cantidad === 0}
-                      onClick={() => cambiarCantidad(m.id, -1)}
-                      aria-label={`Quitar una unidad de ${m.nombre}`}
-                    >
-                      −
-                    </ActionIcon>
-
-                    <Text fw={700} size="xl" w={32} ta="center">
-                      {cantidad}
-                    </Text>
-
-                    <ActionIcon
-                      size="xl"
-                      fz={22}
-                      color="var(--rojo)"
-                      onClick={() => cambiarCantidad(m.id, 1)}
-                      aria-label={`Agregar una unidad de ${m.nombre}`}
-                    >
-                      +
-                    </ActionIcon>
-                  </Group>
-                </Group>
-              </Paper>
-            )
-          })}
-        </SimpleGrid>
+        {servicioId === null ? (
+          <Text c="dimmed">Elegí primero el servicio de origen.</Text>
+        ) : (
+          <Stack gap="lg">
+            {materialesCalor.length > 0 && (
+              <div>
+                <Text fw={700} c="dimmed" mb="xs">
+                  Autoclave y estufa
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+                  {materialesCalor.map(tarjetaMaterial)}
+                </SimpleGrid>
+              </div>
+            )}
+            {materialesOxido.length > 0 && (
+              <div>
+                <Text fw={700} c="dimmed" mb="xs">
+                  Óxido de etileno
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+                  {materialesOxido.map(tarjetaMaterial)}
+                </SimpleGrid>
+              </div>
+            )}
+          </Stack>
+        )}
 
         <Text mt="sm" c="dimmed">
           Total: {totalUnidades} {totalUnidades === 1 ? 'unidad' : 'unidades'}

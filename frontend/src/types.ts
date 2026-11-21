@@ -11,6 +11,8 @@ export interface Material {
   id: number
   nombre: string
   codigo: string | null // en el back es opcional
+  seccion?: 'calor' | 'oxido' // catálogo oficial: autoclave/estufa u óxido de etileno
+  se_recibe?: boolean // false = solo se entrega (tachado en la planilla de recepción)
 }
 
 // Lo que se carga por cada material: cuál y cuántas unidades
