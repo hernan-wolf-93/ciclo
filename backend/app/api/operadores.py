@@ -1,11 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import exigir_administrador, obtener_db
 from app.models import Operador
 from app.schemas.operador import OperadorAdminOut, OperadorAltaIn, OperadorModificarIn
+from app.schemas.recuperacion import CodigoRecuperacionOut
+from app.services.recuperacion import generar_codigo_recuperacion
 from app.services.operadores import (
     ErrorDeOperadores,
     NumeroDuplicado,
@@ -78,3 +80,22 @@ def modificar(
     except ErrorDeOperadores as error:
         raise _a_http(error) from error
     return _salida(operador)
+
+@router.post(
+    "/{operador_id}/codigo-recuperacion",
+    response_model=CodigoRecuperacionOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def generar_codigo(
+    operador_id: int,
+    respuesta: Response,
+    actor: Annotated[Operador, Depends(exigir_administrador)],
+    db: Annotated[Session, Depends(obtener_db)],
+):
+    """Genera un código de recuperación de un solo uso. Se muestra una única vez."""
+    try:
+        codigo, vence = generar_codigo_recuperacion(db, actor, operador_id)
+    except ErrorDeOperadores as error:
+        raise _a_http(error) from error
+    respuesta.headers["Cache-Control"] = "no-store"
+    return CodigoRecuperacionOut(codigo=codigo, vence=vence)

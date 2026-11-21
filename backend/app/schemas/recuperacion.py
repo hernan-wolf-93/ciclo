@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.reglas_operador import (
@@ -17,3 +18,9 @@ class RecuperarContrasenaIn(BaseModel):
     def normalizar(cls, valor: str) -> str:
         # El código se dicta o se copia a mano: se ignoran espacios y minúsculas.
         return valor.strip().upper()
+    
+class CodigoRecuperacionOut(BaseModel):
+    """El código en claro se devuelve una única vez, al generarlo."""
+
+    codigo: str
+    vence: datetime
