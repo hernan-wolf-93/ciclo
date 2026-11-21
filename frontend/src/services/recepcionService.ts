@@ -1,4 +1,8 @@
-import { MATERIALES, SERVICIOS } from '../mocks/catalogos'
+import {
+  MATERIALES_OFICIALES,
+  MATERIALES_POR_SERVICIO,
+  SERVICIOS_OFICIALES,
+} from '../mocks/catalogoOficial'
 import type { Material, NuevaRecepcion, RecepcionCreada, Servicio } from '../types'
 
 // * Por ahora todo devuelve datos de prueba. Cuando Lobo tenga la API,
@@ -12,13 +16,15 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export async function obtenerServicios(): Promise<Servicio[]> {
   // TODO: GET /servicios
   await esperar(200)
-  return SERVICIOS
+  return SERVICIOS_OFICIALES
 }
 
-export async function obtenerMateriales(): Promise<Material[]> {
-  // TODO: GET /materiales
+// Materiales que se RECIBEN de un servicio (lo tachado en la planilla no va)
+export async function obtenerMateriales(servicioId: number): Promise<Material[]> {
+  // TODO: GET /materiales?servicio_id=
   await esperar(200)
-  return MATERIALES
+  const ids = MATERIALES_POR_SERVICIO[servicioId] ?? []
+  return MATERIALES_OFICIALES.filter((m) => m.se_recibe && ids.includes(m.id))
 }
 
 export async function registrarRecepcion(datos: NuevaRecepcion): Promise<RecepcionCreada> {
