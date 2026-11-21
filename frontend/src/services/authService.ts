@@ -17,6 +17,17 @@ export async function obtenerYo(): Promise<Usuario> {
   return data
 }
 
+// POST /auth/recuperar-contrasena: pública. Cambia la clave con el código que dio un
+// administrador. Responde 204 sin cuerpo; si el código no sirve, 400 (no 401, así el
+// interceptor de api.ts no cierra la sesión).
+export async function recuperarContrasena(
+  numero_operador: string,
+  codigo: string,
+  contrasena_nueva: string,
+): Promise<void> {
+  await api.post('/auth/recuperar-contrasena', { numero_operador, codigo, contrasena_nueva })
+}
+
 export function cerrarSesion() {
   borrarToken()
 }

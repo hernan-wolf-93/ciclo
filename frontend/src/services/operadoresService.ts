@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { api } from './api'
-import type { Rol, UsuarioAdmin } from '../types'
+import type { CodigoRecuperacion, Rol, UsuarioAdmin } from '../types'
 
 // GET /operadores: sin filtro trae todos; con true solo activos, con false solo dados de baja
 export async function listarUsuarios(activo?: boolean): Promise<UsuarioAdmin[]> {
@@ -32,6 +32,14 @@ export async function modificarUsuario(
   cambios: { rol_id?: number; activo?: boolean },
 ): Promise<UsuarioAdmin> {
   const { data } = await api.patch<UsuarioAdmin>(`/operadores/${id}`, cambios)
+  return data
+}
+
+// POST /operadores/{id}/codigo-recuperacion: solo administradores. El id es el interno
+// (el de GET /operadores), no el N.º de operador. Invalida los códigos anteriores.
+// Errores: 403 sin permiso, 404 no existe, 422 es uno mismo o está de baja (usar mensajeDeError).
+export async function generarCodigoRecuperacion(id: number): Promise<CodigoRecuperacion> {
+  const { data } = await api.post<CodigoRecuperacion>(`/operadores/${id}/codigo-recuperacion`)
   return data
 }
 

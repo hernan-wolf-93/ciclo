@@ -12,12 +12,14 @@ import {
   Stack,
   Switch,
   Table,
+  Text,
   TextInput,
   Title,
 } from '@mantine/core'
 import { useAuth } from '../auth/useAuth'
 import {
   crearUsuario,
+  generarCodigoRecuperacion,
   listarRoles,
   listarUsuarios,
   mensajeDeError,
@@ -132,6 +134,13 @@ export default function Usuarios() {
   const [altaAbierta, setAltaAbierta] = useState(false)
   const [editando, setEditando] = useState<UsuarioAdmin | null>(null)
   const [recarga, setRecarga] = useState(0)
+  // ! El código de recuperación vive solo acá: no se guarda en localStorage ni en
+  // ! ningún otro lado. Al cerrar el modal se borra y no se puede volver a ver.
+  const [codigoGenerado, setCodigoGenerado] = useState<{
+    numero_operador: string
+    codigo: string
+    vence: string
+  } | null>(null)
 
   // Cada vez que cambia el filtro o `recarga`, se vuelve a pedir la lista
   useEffect(() => {
@@ -168,6 +177,18 @@ export default function Usuarios() {
       cargar()
     } catch (e) {
       setError(mensajeDeError(e))
+    }
+  }
+
+  const generarCodigo = async (u: UsuarioAdmin) => {
+    const pregunta = `¿Generar un código de recuperación para el operador ${u.numero_operador}? Los códigos anteriores dejan de servir.`
+    if (!window.confirm(pregunta)) return
+    try {
+      const { codigo, vence } = await generarCodigoRecuperacion(u.id)
+      setError(null)
+      setCodigoGenerado({ numero_operador: u.numero_operador, codigo, vence })
+    } catch (e) {
+      setError(mensajeDeError(e)) // 403, 404 o 422: muestra el detail del back
     }
   }
 
@@ -224,6 +245,12 @@ export default function Usuarios() {
                     >
                       {u.activo ? 'Dar de baja' : 'Reactivar'}
                     </Button>
+                    {/* No para uno mismo ni para los dados de baja: el back responde 422 */}
+                    {u.id !== usuario?.id && u.activo && (
+                      <Button size="xs" variant="default" onClick={() => generarCodigo(u)}>
+                        Generar código
+                      </Button>
+                    )}
                   </Group>
                 </Table.Td>
               </Table.Tr>
@@ -252,6 +279,39 @@ export default function Usuarios() {
               cargar()
             }}
           />
+        )}
+      </Modal>
+
+      <Modal
+        opened={codigoGenerado !== null}
+        onClose={() => setCodigoGenerado(null)}
+        title="Código de recuperación"
+      >
+        {codigoGenerado && (
+          <Stack>
+            <Text>
+              N.º de operador: <b>{codigoGenerado.numero_operador}</b>
+            </Text>
+            <Text fz={32} fw={700} ta="center" ff="monospace">
+              {codigoGenerado.codigo.toUpperCase()}
+            </Text>
+            <Text>
+              Vence:{' '}
+              {new Date(codigoGenerado.vence).toLocaleString('es-AR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })}{' '}
+              h
+            </Text>
+            <Alert color="orange">
+              Anotalo ahora y entregalo en persona. No se puede volver a ver. Vence a los 30 minutos.
+            </Alert>
+            <Button onClick={() => setCodigoGenerado(null)}>Listo</Button>
+          </Stack>
         )}
       </Modal>
     </Stack>

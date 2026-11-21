@@ -30,6 +30,8 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 21/11/2026 | Mara | Pantalla de recuperación de contraseña | Pantalla pública "Olvidé mi contraseña" (/recuperar) y botón "Generar código" en Usuarios, con la API de recuperación de Lobo. El código se muestra una sola vez y no se guarda. (PR #N29). |
+| 21/11/2026 | Mara | Recepción: material por servicio (catálogo oficial) | Recepción muestra solo los materiales del servicio elegido, en dos grupos (autoclave y estufa / óxido de etileno), y no muestra lo que solo se entrega. Cantidades en cero al cambiar de servicio. Datos de prueba. (PR #N28). |
 | 20/11/2026 | Lobo | Recuperación de contraseña (simulada) | Mecanismo de código de un solo uso: un administrador genera el código y el operador lo usa para elegir una clave nueva. Migración 0009 (tabla recuperacion_contrasena), POST /operadores/{id}/codigo-recuperacion y POST /auth/recuperar-contrasena. (PR #27). |
 | 20/11/2026 | Lobo | API de avance de lavado y empaque | POST /avances pasa ítems a Lavado o Empaque, por línea con cantidad, todo o nada y firmado por el operador del token. Migración 0008 con observacion y solo_desinfeccion en evento_item. Validación del avance de varios ítems con una sola consulta. (PR #26). |
 | 20/11/2026 | Lobo | Generar número de lote (numeración por equipo) | La propuesta del número de lote pasa a ser por equipo y no por método. Se ajustan 3 pruebas y la docstring de Lote. Sin migración. (PR #25). |
@@ -52,7 +54,6 @@ número del PR.
 | 11/11/2026 | Mara | Catálogos iniciales | Migración 0004: servicios, regla NEO–UTI y programas provisorios (PR #3). |
 | 10/11/2026 | Lobo | Modelo de datos | Modelo de 14 tablas hasta 3FN, migraciones y DER (PR #2). |
 | 10/11/2026 | Lobo | Definir stack y repositorio | Repositorio, reglas de equipo y protección de `main` (PR #1). |
-| 21/11/2026 | Mara | Recepción: material por servicio (catálogo oficial) | Recepción muestra solo los materiales del servicio elegido, en dos grupos (autoclave y estufa / óxido de etileno), y no muestra lo que solo se entrega. Cantidades en cero al cambiar de servicio. Datos de prueba. (PR #N). |
 
 ## Pruebas automáticas
 
