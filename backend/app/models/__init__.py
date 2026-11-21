@@ -8,7 +8,7 @@ from app.models.catalogos import (
     ServicioIncompatible,
 )
 from app.models.circuito import Entrega, EventoItem, Item, Lote, Recepcion
-from app.models.usuarios import Operador, Rol
+from app.models.usuarios import Operador, RecuperacionContrasena, Rol
 
 __all__ = [
     "Entrega",
@@ -22,6 +22,7 @@ __all__ = [
     "Operador",
     "Programa",
     "Recepcion",
+    "RecuperacionContrasena",
     "Rol",
     "Servicio",
     "ServicioIncompatible",

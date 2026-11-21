@@ -7,6 +7,8 @@ from app.api.deps import obtener_db, obtener_operador_actual
 from app.core.seguridad import crear_token
 from app.models import Operador
 from app.schemas.auth import LoginIn, OperadorOut, TokenOut
+from app.schemas.recuperacion import RecuperarContrasenaIn
+from app.services.recuperacion import CodigoInvalido, restablecer_contrasena
 from app.services.auth import autenticar
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -33,3 +35,15 @@ def quien_soy(operador: Annotated[Operador, Depends(obtener_operador_actual)]):
         numero_operador=operador.numero_operador,
         rol=operador.rol.nombre,
     )
+    
+@router.post("/recuperar-contrasena", status_code=status.HTTP_204_NO_CONTENT)
+def recuperar_contrasena(datos: RecuperarContrasenaIn, db: Annotated[Session, Depends(obtener_db)]):
+    """Restablece la contraseña con un código de recuperación. Es público: no pide token.
+
+    Responde 400 (y no 401) si el código no sirve, con un único mensaje para todos
+    los motivos. Un 401 haría que el frontend cierre la sesión.
+    """
+    try:
+        restablecer_contrasena(db, datos)
+    except CodigoInvalido as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
