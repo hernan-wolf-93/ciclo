@@ -185,3 +185,10 @@ export interface UsuarioAdmin {
   rol: string // nombre del rol
   activo: boolean
 }
+
+// Respuesta de POST /operadores/{id}/codigo-recuperacion.
+// ! Se muestra una sola vez: no se guarda en ningún lado.
+export interface CodigoRecuperacion {
+  codigo: string
+  vence: string // fecha y hora ISO
+}

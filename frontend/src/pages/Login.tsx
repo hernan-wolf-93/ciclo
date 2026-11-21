@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
-import { Alert, Button, Paper, PasswordInput, TextInput, Title } from '@mantine/core'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Alert, Anchor, Button, Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { isAxiosError } from 'axios'
 import { useAuth } from '../auth/useAuth'
 
 export default function Login() {
   const { usuario, iniciarSesion } = useAuth()
   const navegar = useNavigate()
+  // Aviso que deja otra pantalla al volver acá (ej.: "Contraseña cambiada...")
+  const aviso = (useLocation().state as { aviso?: string } | null)?.aviso
   const [numero, setNumero] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [error, setError] = useState('')
@@ -44,6 +46,11 @@ export default function Login() {
       <Title order={2} mb="md">
         Ciclo — Ingreso
       </Title>
+      {aviso && (
+        <Alert color="green" mb="md">
+          {aviso}
+        </Alert>
+      )}
       {error && (
         <Alert color="red" mb="md" role="alert">
           {error}
@@ -66,6 +73,9 @@ export default function Login() {
       <Button type="submit" fullWidth loading={enviando}>
         Ingresar
       </Button>
+      <Anchor component={Link} to="/recuperar" size="sm" display="block" ta="center" mt="md">
+        ¿Olvidaste tu contraseña?
+      </Anchor>
     </Paper>
   )
 }

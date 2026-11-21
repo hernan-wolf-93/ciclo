@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import RutaProtegida from './auth/RutaProtegida'
 import Login from './pages/Login'
+import RecuperarContrasena from './pages/RecuperarContrasena'
 import Tablero from './pages/Tablero'
 import Recepcion from './pages/Recepcion'
 import Esterilizacion from './pages/Esterilizacion'
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="login" element={<Login />} />
+      <Route path="recuperar" element={<RecuperarContrasena />} />
       <Route element={<RutaProtegida />}>
         <Route element={<AppLayout />}>
           <Route index element={<Tablero />} />
