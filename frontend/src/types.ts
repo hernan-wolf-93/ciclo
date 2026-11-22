@@ -268,3 +268,22 @@ export interface FiltrosTablero {
   urgente?: boolean
   lote_ids?: number[]
 }
+
+// ---------------------------------------------------------------------------
+// Avisos de material detenido (RF4 y RF7). Contrato de GET /avisos (schemas/aviso.py).
+// * Los umbrales son provisorios (backend/app/services/reglas_avisos.py).
+// ---------------------------------------------------------------------------
+
+export interface Aviso {
+  tipo: 'detenido' | 'listo_para_retirar'
+  recepcion_id: number
+  servicio: { id: number; nombre: string }
+  material: { id: number; nombre: string; codigo: string | null }
+  cantidad: number
+  etapa_orden: number
+  lote: { id: number; numero: number; equipo: string } | null
+  desde: string
+  minutos_transcurridos: number // calculado en el servidor
+  umbral_minutos: number | null // null en "listo para retirar"
+  motivo: string // texto listo para mostrar
+}
