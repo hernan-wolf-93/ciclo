@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Loader, Paper, SegmentedControl, Stack, Table, Text, TextInput, Title } from '@mantine/core'
 import { buscarLotes, obtenerTablero } from '../services/tableroService'
-import type { FilaTablero, LoteResumen } from '../types'
+import { obtenerAvisos } from '../services/avisosService'
+import type { Aviso, FilaTablero, LoteResumen } from '../types'
 import styles from './Tablero.module.css'
 
 // * Tablero de material en curso (RF7 y RF6). Cada fila es una recepción con algún
@@ -52,8 +53,31 @@ export default function Tablero() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [recargas, setRecargas] = useState(0)
+  const [avisos, setAvisos] = useState<Aviso[]>([])
 
   const numeroLote = comoNumeroDeLote(busqueda)
+
+  // Avisos de material detenido o listo para retirar (GET /avisos), al entrar y al actualizar.
+  // Si fallan, el tablero se sigue mostrando: el panel simplemente no aparece.
+  useEffect(() => {
+    let vigente = true
+    obtenerAvisos()
+      .then((lista) => {
+        if (vigente) setAvisos(lista)
+      })
+      .catch(() => {
+        if (vigente) setAvisos([])
+      })
+    return () => {
+      vigente = false
+    }
+  }, [recargas])
+
+  // Cuántos avisos tiene cada recepción, para marcar sus filas
+  const avisosPorRecepcion = new Map<number, number>()
+  for (const aviso of avisos) {
+    avisosPorRecepcion.set(aviso.recepcion_id, (avisosPorRecepcion.get(aviso.recepcion_id) ?? 0) + 1)
+  }
 
   // Trae el tablero al entrar, al cambiar el filtro o al buscar un N.º de lote.
   // La espera corta evita pedir una vez por cada tecla.
@@ -135,6 +159,8 @@ export default function Tablero() {
         </Button>
       </Group>
 
+      <PanelAtencion avisos={avisos} />
+
       <Group align="flex-end" gap="lg">
         <div>
           <SegmentedControl
@@ -206,7 +232,7 @@ export default function Tablero() {
             {visibles.length} {visibles.length === 1 ? 'recepción en curso' : 'recepciones en curso'}
           </Text>
           {visibles.map((fila) => (
-            <FilaRecepcion key={fila.recepcion_id} fila={fila} />
+            <FilaRecepcion key={fila.recepcion_id} fila={fila} avisos={avisosPorRecepcion.get(fila.recepcion_id) ?? 0} />
           ))}
         </Stack>
       )}
@@ -218,7 +244,7 @@ export default function Tablero() {
 // Una recepción con su recorrido por las 6 etapas
 // ---------------------------------------------------------------------------
 
-function FilaRecepcion({ fila }: { fila: FilaTablero }) {
+function FilaRecepcion({ fila, avisos }: { fila: FilaTablero; avisos: number }) {
   const [abierta, setAbierta] = useState(false)
 
   return (
@@ -234,6 +260,12 @@ function FilaRecepcion({ fila }: { fila: FilaTablero }) {
             <Text fw={700} size="lg">
               {fila.servicio.nombre}
             </Text>
+            {/* Marca de la fila: tiene avisos en el panel "Requieren atención" */}
+            {avisos > 0 && (
+              <Badge color="orange" variant="light">
+                ⚠ {avisos} {avisos === 1 ? 'aviso' : 'avisos'}
+              </Badge>
+            )}
           </Group>
           <Text c="dimmed" size="sm">
             Recepción N.º {fila.recepcion_id} · {diaHora(fila.fecha_hora)} h · {fila.total_items}{' '}
@@ -298,5 +330,68 @@ function FilaRecepcion({ fila }: { fila: FilaTablero }) {
         </Table>
       )}
     </Paper>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Panel "Requieren atención" (versión mínima): avisos de GET /avisos.
+// TODO (otra tarjeta): marcar como visto, notificaciones, actualización automática,
+// filtros por tipo y umbrales editables desde la pantalla.
+// ---------------------------------------------------------------------------
+
+function PanelAtencion({ avisos }: { avisos: Aviso[] }) {
+  if (avisos.length === 0) return null
+
+  const detenidos = avisos.filter((a) => a.tipo === 'detenido')
+  const listos = avisos.filter((a) => a.tipo === 'listo_para_retirar')
+
+  return (
+    <Paper withBorder radius="md" p="md" className={styles.panelAtencion}>
+      <Text fw={700} size="lg" mb="xs">
+        Requieren atención ({avisos.length})
+      </Text>
+      <Stack gap="md">
+        {detenidos.length > 0 && <GrupoAvisos titulo="Material detenido" color="orange" avisos={detenidos} />}
+        {listos.length > 0 && <GrupoAvisos titulo="Listo para retirar" color="green" avisos={listos} />}
+      </Stack>
+    </Paper>
+  )
+}
+
+function GrupoAvisos({ titulo, color, avisos }: { titulo: string; color: string; avisos: Aviso[] }) {
+  return (
+    <div>
+      <Badge color={color} variant="filled" mb={6}>
+        {titulo}
+      </Badge>
+      <Table verticalSpacing={4} fz="sm">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Servicio</Table.Th>
+            <Table.Th>Material</Table.Th>
+            <Table.Th>Etapa</Table.Th>
+            <Table.Th>Motivo</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {avisos.map((a) => (
+            <Table.Tr key={`${a.tipo}-${a.recepcion_id}-${a.material.id}-${a.etapa_orden}-${a.lote?.id ?? 0}`}>
+              <Table.Td>
+                {a.servicio.nombre}
+                <Text span c="dimmed" fz="xs">
+                  {' '}
+                  · Recepción N.º {a.recepcion_id}
+                </Text>
+              </Table.Td>
+              <Table.Td>
+                {a.material.nombre} × {a.cantidad}
+              </Table.Td>
+              <Table.Td>{nombreEtapa(a.etapa_orden)}</Table.Td>
+              <Table.Td>{a.motivo}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </div>
   )
 }

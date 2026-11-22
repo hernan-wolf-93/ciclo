@@ -45,3 +45,8 @@
   font-weight: 700;
   line-height: 1.1;
 }
+
+/* Panel "Requieren atención": borde naranja para que se note arriba del tablero */
+.panelAtencion {
+  border-left: 6px solid var(--mantine-color-orange-6);
+}

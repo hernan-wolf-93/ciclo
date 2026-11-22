@@ -24,7 +24,7 @@ ORDEN_ENTREGA = 6
 ORDENES = range(1, ORDEN_ENTREGA + 1)
 
 
-def _ultimo_lote_por_item(db: Session, item_ids: list[int]) -> dict[int, int]:
+def ultimo_lote_por_item(db: Session, item_ids: list[int]) -> dict[int, int]:
     """Para cada ítem, el lote de su último evento con lote (el de mayor id).
 
     Solo los eventos de Esterilización llevan lote_id: si el ítem se reesterilizó,
@@ -84,7 +84,7 @@ def listar_tablero(
 
     item_ids = [item.id for item in items]
     situaciones = situaciones_de_items(db, item_ids)
-    lote_por_item = _ultimo_lote_por_item(db, item_ids)
+    lote_por_item = ultimo_lote_por_item(db, item_ids)
 
     # Catálogos que hacen falta, con una consulta por tabla
     servicios = {
