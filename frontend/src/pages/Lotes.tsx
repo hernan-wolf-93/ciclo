@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Timeline, Title } from '@mantine/core'
 import { obtenerLote, obtenerLotes } from '../services/lotesService'
 import type { EstadoLote, EventoItem, ItemDelLote, LoteDetalle, LoteResumen, ResultadoLote } from '../types'
@@ -71,7 +72,9 @@ function deducirEstado(
 // ---------------------------------------------------------------------------
 
 export default function Lotes() {
-  const [busqueda, setBusqueda] = useState('')
+  // ?numero= en la URL (por ejemplo, desde el Tablero) arranca la búsqueda con ese N.º
+  const [parametros] = useSearchParams()
+  const [busqueda, setBusqueda] = useState(() => (parametros.get('numero') ?? '').replace(/\D/g, '').slice(0, 3))
   const [lotes, setLotes] = useState<LoteResumen[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')

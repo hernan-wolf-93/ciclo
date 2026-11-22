@@ -1,0 +1,47 @@
+/* Recepción urgente: borde izquierdo rojo, se distingue de lejos */
+.urgente {
+  border-left: 6px solid var(--rojo);
+}
+
+/* Recorrido por las 6 etapas */
+.recorrido {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 700px) {
+  .recorrido {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Cada etapa lleva el color de su área (--area): fino si está vacía, lleno si tiene ítems */
+.etapa {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-top: 5px solid var(--area);
+  background: #f4f6f7;
+  color: #8a97a1;
+}
+
+.conItems {
+  background: var(--area);
+  color: #fff;
+}
+
+.nombreEtapa {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.cantidad {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
