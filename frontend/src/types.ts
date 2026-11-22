@@ -230,3 +230,41 @@ export interface Pendiente {
   material: string
   cantidad: number
 }
+
+// ---------------------------------------------------------------------------
+// Tablero de material en curso (RF7 y RF6). Contrato de GET /tablero (schemas/tablero.py).
+// * Cada fila es una recepción con algún ítem que todavía no llegó a Entrega.
+// * El lote aparece recién desde Esterilización.
+// ---------------------------------------------------------------------------
+
+export interface MaterialEnCurso {
+  material_id: number
+  nombre: string
+  codigo: string | null
+  etapa_orden: number // 1 a 6, deducida del último evento de cada ítem
+  cantidad: number
+}
+
+// Último lote de esterilización de ítems de la fila (si hubo reesterilización, el último)
+export interface LoteDeFila {
+  id: number
+  numero: number // se repite: de 1 a 999 y por equipo
+  equipo: string
+  resultado: ResultadoLote | null
+}
+
+export interface FilaTablero {
+  recepcion_id: number
+  fecha_hora: string
+  urgente: boolean
+  servicio: { id: number; nombre: string }
+  total_items: number
+  por_etapa: Record<string, number> // claves "1" a "6": ítems en cada etapa
+  materiales: MaterialEnCurso[]
+  lotes: LoteDeFila[]
+}
+
+export interface FiltrosTablero {
+  urgente?: boolean
+  lote_ids?: number[]
+}
