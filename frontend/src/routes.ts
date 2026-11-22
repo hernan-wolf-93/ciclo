@@ -1,6 +1,4 @@
 // Pantallas de la aplicación. Cada una tiene su área de color (si corresponde).
-// Azul (área limpia: empaque) queda definido en index.css para cuando
-// se agregue una pantalla de empaque.
 export type Area = 'rojo' | 'azul' | 'gris' | 'verde'
 
 export interface Pantalla {
@@ -18,6 +16,18 @@ export const pantallas: Pantalla[] = [
     label: 'Recepción',
     area: 'rojo',
     franja: 'Área sucia: recepción y control',
+  },
+  {
+    path: '/lavado',
+    label: 'Lavado',
+    area: 'rojo',
+    franja: 'Área sucia: lavado y secado',
+  },
+  {
+    path: '/empaque',
+    label: 'Empaque',
+    area: 'azul',
+    franja: 'Área limpia: empaque y rotulación',
   },
   {
     path: '/esterilizacion',

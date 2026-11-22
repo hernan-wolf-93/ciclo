@@ -13,6 +13,7 @@ export interface Material {
   codigo: string | null // en el back es opcional
   seccion?: 'calor' | 'oxido' // catálogo oficial: autoclave/estufa u óxido de etileno
   se_recibe?: boolean // false = solo se entrega (tachado en la planilla de recepción)
+  nombre_alternativo?: string | null // GET /materiales: nombre técnico o de cirugía
 }
 
 // Lo que se carga por cada material: cuál y cuántas unidades
@@ -191,4 +192,41 @@ export interface UsuarioAdmin {
 export interface CodigoRecuperacion {
   codigo: string
   vence: string // fecha y hora ISO
+}
+
+// ---------------------------------------------------------------------------
+// Avance de lavado y empaque (RF4). Contrato de POST /avances (schemas/avance.py).
+// ---------------------------------------------------------------------------
+
+// 2 = Lavado y secado, 3 = Empaque y rotulación (orden de la etapa, migración 0002)
+export type EtapaAvance = 2 | 3
+
+export interface LineaAvance {
+  material_id: number
+  cantidad: number
+  // TODO: método por línea en Empaque (metodo_id), cuando Lobo ajuste POST /avances.
+}
+
+export interface NuevoAvance {
+  etapa_orden: EtapaAvance
+  items: LineaAvance[]
+  solo_desinfeccion: boolean // solo en Lavado; obliga a escribir observación
+  observacion?: string
+}
+
+// Lo que devuelve POST /avances (201)
+export interface AvanceRegistrado {
+  etapa_orden: EtapaAvance
+  total_items: number
+  solo_desinfeccion: boolean
+}
+
+// TODO: forma acordada de GET /avances/pendientes?etapa_orden=N (todavía no existe).
+// Unidades que esperan pasar a esa etapa, por servicio de origen y material.
+export interface Pendiente {
+  servicio_id: number
+  servicio: string
+  material_id: number
+  material: string
+  cantidad: number
 }
