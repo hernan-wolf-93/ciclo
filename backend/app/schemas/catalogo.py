@@ -37,3 +37,8 @@ class ProgramaOut(BaseModel):
 class ProximoNumeroOut(BaseModel):
     equipo_id: int
     numero: int
+
+
+class MetodoOut(BaseModel):
+    id: int
+    nombre: str
