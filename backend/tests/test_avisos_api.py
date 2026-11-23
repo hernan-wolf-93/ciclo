@@ -201,7 +201,7 @@ def test_reesterilizado_solo_cuenta_el_ultimo_lote(cliente_pg, db_pg, operador, 
 
 
 def test_aireacion_en_curso_no_avisa_y_cumplida_avisa_listo(cliente_pg, db_pg, operador, oxido, materiales):
-    consultorios = db_pg.scalar(select(Servicio).where(Servicio.nombre == "Consultorios"))
+    consultorios = db_pg.scalar(select(Servicio).where(Servicio.nombre == "Consultorios Externos"))
     pediatria = db_pg.scalar(select(Servicio).where(Servicio.nombre == "Pediatría"))
     consultorios.dias_aireacion, pediatria.dias_aireacion = 3, 7
     fin = AHORA - timedelta(days=4)
@@ -215,7 +215,7 @@ def test_aireacion_en_curso_no_avisa_y_cumplida_avisa_listo(cliente_pg, db_pg, o
     assert len(avisos) == 1  # Pediatría (7 días) todavía está en aireación
     aviso = avisos[0]
     assert aviso["tipo"] == "listo_para_retirar"
-    assert aviso["servicio"]["nombre"] == "Consultorios"
+    assert aviso["servicio"]["nombre"] == "Consultorios Externos"
     assert aviso["cantidad"] == 2
     assert datetime.fromisoformat(aviso["desde"]) == fin + timedelta(days=3)
     assert aviso["minutos_transcurridos"] == 24 * 60

@@ -19,6 +19,8 @@ class _DesdeModelo(BaseModel):
 class MetodoOut(_DesdeModelo):
     id: int
     nombre: str
+    requiere_aireacion: bool  # true solo en óxido de etileno
+    vencimiento_dias: int | None  # provisorio (migración 0010)
 
 
 class EquipoOut(_DesdeModelo):
@@ -29,14 +31,16 @@ class EquipoOut(_DesdeModelo):
 
 
 class ProgramaOut(_DesdeModelo):
+    """Parámetros del panel del equipo (migración 0010). Todos opcionales: el
+    programa P de la estufa no tiene valores fijos."""
+
     id: int
     nombre: str
     metodo_id: int
-    # TODO: los parámetros del programa dependen de la migración 0008. Hasta
-    # entonces no existen en la base y se devuelven en null.
     temperatura_c: float | None = None
     tiempo_esterilizacion_min: int | None = None
     tiempo_secado_min: int | None = None
+    tiempo_desgasificacion_min: int | None = None  # óxido de etileno: dentro del equipo, no es la aireación
     vacio_bar: float | None = None
     vapor_bar: float | None = None
     pulsos: int | None = None
@@ -119,8 +123,7 @@ class LoteDetalleOut(BaseModel):
     fin: datetime | None
     resultado: ResultadoLote | None
     observacion: str | None  # motivo, obligatorio si el lote falló
-    # TODO: lote.numero_ciclo depende de la migración 0008. Hasta entonces, null.
-    numero_ciclo: str | None = None
+    numero_ciclo: str | None = None  # contador del equipo (lote.numero_ciclo)
     equipo: EquipoOut
     programa: ProgramaOut
     operador: OperadorOut

@@ -5,7 +5,7 @@ import type { FilaTablero, FiltrosTablero, LoteResumen } from '../types'
 // lote_id se repite en la URL (?lote_id=1&lote_id=5), como lo espera FastAPI.
 export async function obtenerTablero(filtros: FiltrosTablero = {}): Promise<FilaTablero[]> {
   const { data } = await api.get<FilaTablero[]>('/tablero', {
-    params: { urgente: filtros.urgente, lote_id: filtros.lote_ids },
+    params: { urgente: filtros.urgente, lote_id: filtros.lote_ids, externo: filtros.externo },
     paramsSerializer: { indexes: null },
   })
   return data

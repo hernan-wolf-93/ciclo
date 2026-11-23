@@ -5,6 +5,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -93,6 +94,7 @@ class Lote(Base):
     fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resultado: Mapped[str | None] = mapped_column(String(10))
     observacion: Mapped[str | None] = mapped_column(Text)
+    numero_ciclo: Mapped[str | None] = mapped_column(String(20))  # contador del equipo (ticket)
 
     items: Mapped[list["Item"]] = relationship(back_populates="lote")
 
@@ -111,6 +113,10 @@ class Item(Base):
             "entrega_id IS NULL OR lote_id IS NOT NULL",
             name="ck_item_entrega_requiere_lote",
         ),
+        CheckConstraint(
+            "cantidad_piezas IS NULL OR cantidad_piezas > 0",
+            name="ck_item_cantidad_piezas_positiva",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -119,6 +125,10 @@ class Item(Base):
     metodo_id: Mapped[int | None] = mapped_column(ForeignKey("metodo_esterilizacion.id"))
     lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote.id"), index=True)
     entrega_id: Mapped[int | None] = mapped_column(ForeignKey("entrega.id"), index=True)
+    # Cajas: se anota la caja y su número de piezas, sin detallar cuáles
+    cantidad_piezas: Mapped[int | None] = mapped_column(Integer)
+    # Texto libre del material genérico "Otros" (renglón "Otros" de las planillas)
+    descripcion: Mapped[str | None] = mapped_column(Text)
 
     recepcion: Mapped["Recepcion"] = relationship(back_populates="items")
     lote: Mapped["Lote | None"] = relationship(back_populates="items")
@@ -127,7 +137,12 @@ class Item(Base):
 
 
 class EventoItem(Base):
-    """Historial del ítem. Solo de agregado: la API no edita ni borra."""
+    """Historial del ítem. Solo de agregado: la API no edita ni borra.
+
+    intento: 1 en el primer recorrido. El reempaque por falla del indicador
+    interno usará intento 2 o más (services/flujo.siguiente_intento). La
+    reesterilización actual sigue con intento 1: la distingue el lote_id.
+    """
 
     __tablename__ = "evento_item"
     __table_args__ = (
@@ -135,9 +150,11 @@ class EventoItem(Base):
             "item_id",
             "etapa_id",
             "lote_id",
-            name="uq_evento_item_etapa_lote",
+            "intento",
+            name="uq_evento_item_etapa_lote_intento",
             postgresql_nulls_not_distinct=True,
         ),
+        CheckConstraint("intento >= 1", name="ck_evento_item_intento_positivo"),
         CheckConstraint(
             "NOT solo_desinfeccion OR "
             "(observacion IS NOT NULL AND length(btrim(observacion)) > 0)",
@@ -153,9 +170,36 @@ class EventoItem(Base):
     item_id: Mapped[int] = mapped_column(ForeignKey("item.id"))
     etapa_id: Mapped[int] = mapped_column(ForeignKey("etapa.id"))
     lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote.id"), index=True)
+    intento: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     operador_id: Mapped[int] = mapped_column(ForeignKey("operador.id"))
     fecha_hora: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
     item: Mapped["Item"] = relationship(back_populates="eventos")
+
+
+class ControlBowieDick(Base):
+    """Prueba Bowie-Dick: obligatoria todos los días antes de usar el autoclave.
+
+    La validación "no esterilizar sin un Bowie-Dick aprobado hoy" va en la API de
+    esterilización (todavía no existe); la consulta está en services/bowie_dick.py.
+    """
+
+    __tablename__ = "control_bowie_dick"
+    __table_args__ = (
+        CheckConstraint("resultado IN ('aprobado', 'fallido')", name="ck_bowie_dick_resultado_valido"),
+        CheckConstraint(
+            "resultado <> 'fallido' OR (observacion IS NOT NULL AND length(btrim(observacion)) > 0)",
+            name="ck_bowie_dick_fallido_requiere_motivo",
+        ),
+        Index("ix_control_bowie_dick_equipo_fecha", "equipo_id", "fecha_hora"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    equipo_id: Mapped[int] = mapped_column(ForeignKey("equipo.id"))
+    fecha_hora: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    operador_id: Mapped[int] = mapped_column(ForeignKey("operador.id"))
+    resultado: Mapped[str] = mapped_column(String(10))
+    observacion: Mapped[str | None] = mapped_column(Text)
+    numero_ciclo: Mapped[str | None] = mapped_column(String(20))

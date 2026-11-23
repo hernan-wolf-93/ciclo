@@ -99,6 +99,7 @@ export default function Tablero() {
         }
         const datos = await obtenerTablero({
           urgente: filtro === 'urgentes' ? true : undefined,
+          externo: filtro === 'externos' ? true : undefined,
           lote_ids: lotes?.map((l) => l.id),
         })
         if (vigente) {
@@ -170,15 +171,10 @@ export default function Tablero() {
             data={[
               { label: 'Todos', value: 'todos' },
               { label: 'Urgentes', value: 'urgentes' },
-              // TODO: falta el dato en servicio para saber cuáles son externos (pedido a Lobo)
-              // y confirmar con el servicio qué significa: probablemente centros de otras
-              // localidades, como Aguilares y Monteros.
-              { label: 'Centros externos', value: 'externos', disabled: true },
+              // Hospitales de otras localidades, Área Programática y sanatorios (servicio.externo)
+              { label: 'Centros externos', value: 'externos' },
             ]}
           />
-          <Text size="xs" c="dimmed" mt={4}>
-            Centros externos: pendiente, falta el dato en el sistema.
-          </Text>
         </div>
         <TextInput
           size="md"

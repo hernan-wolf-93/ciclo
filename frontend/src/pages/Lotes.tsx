@@ -322,7 +322,7 @@ function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
         <Text fw={700} size="lg" mb="sm">
           Datos del ciclo
         </Text>
-        {/* ! Provisorio: lote.numero_ciclo y los parámetros del programa necesitan la migración 0008 */}
+        {/* lote.numero_ciclo y parámetros del programa: migración 0010 */}
         <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
           <Dato etiqueta="N.º de ciclo (ticket)" valor={lote.numero_ciclo ?? '—'} />
           {/* lote.resultado */}
@@ -334,9 +334,13 @@ function DetalleLote({ lote, ahora, onVerLote }: DetalleLoteProps) {
           Parámetros del programa {programa.nombre}
         </Text>
         <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
-          <Dato etiqueta="Temperatura" valor={`${numero(programa.temperatura_c, 1)} °C`} />
-          <Dato etiqueta="Tiempo de esterilización" valor={`${programa.tiempo_esterilizacion_min} min`} />
+          <Dato etiqueta="Temperatura" valor={conUnidad(programa.temperatura_c, '°C', 1)} />
+          <Dato etiqueta="Tiempo de esterilización" valor={conUnidad(programa.tiempo_esterilizacion_min, 'min')} />
           <Dato etiqueta="Tiempo de secado" valor={conUnidad(programa.tiempo_secado_min, 'min')} />
+          {/* Solo óxido de etileno: ocurre dentro del equipo y no es la aireación */}
+          {programa.tiempo_desgasificacion_min !== null && (
+            <Dato etiqueta="Desgasificación" valor={conUnidad(programa.tiempo_desgasificacion_min, 'min')} />
+          )}
           <Dato etiqueta="Nivel de vacío" valor={conUnidad(programa.vacio_bar, 'bar', 2)} />
           <Dato etiqueta="Nivel de vapor" valor={conUnidad(programa.vapor_bar, 'bar', 2)} />
           <Dato etiqueta="Pulsos de vapor y vacío" valor={programa.pulsos !== null ? String(programa.pulsos) : '—'} />
