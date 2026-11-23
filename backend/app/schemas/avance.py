@@ -37,3 +37,11 @@ class AvanceOut(BaseModel):
     etapa_orden: int
     total_items: int
     solo_desinfeccion: bool
+    
+
+class PendienteOut(BaseModel):
+    servicio_id: int
+    servicio: str
+    material_id: int
+    material: str
+    cantidad: int

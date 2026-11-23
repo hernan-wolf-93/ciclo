@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Etapa, EventoItem, Item, Material, Operador
+from app.models import Etapa, EventoItem, Item, Material, Operador, Recepcion, Servicio
 from app.schemas.avance import AvanceIn
 from app.services.flujo import validar_avance_varios
 
@@ -11,20 +11,28 @@ class ErrorDeAvance(Exception):
     """Una regla de negocio no se cumple. El router la responde como 422."""
 
 
+def _ultimo_evento_por_item(material_id: int | None = None):
+    """Subconsulta con el id del último evento de cada ítem (el de mayor id).
+
+    Con material_id, solo de los ítems de ese material.
+    """
+    consulta = (
+        select(func.max(EventoItem.id).label("id"))
+        .select_from(EventoItem)
+        .join(Item, Item.id == EventoItem.item_id)
+    )
+    if material_id is not None:
+        consulta = consulta.where(Item.material_id == material_id)
+    return consulta.group_by(EventoItem.item_id).subquery()
+
+
 def _items_en_espera(db: Session, material_id: int, orden_origen: int, cantidad: int) -> list[int]:
     """Ids de los ítems más antiguos del material cuyo último evento es de la etapa de origen.
 
     "Último" es el evento de mayor id, no el de mayor fecha: los eventos de una
     misma transacción comparten fecha_hora.
     """
-    ultimos = (
-        select(func.max(EventoItem.id).label("id"))
-        .select_from(EventoItem)
-        .join(Item, Item.id == EventoItem.item_id)
-        .where(Item.material_id == material_id)
-        .group_by(EventoItem.item_id)
-        .subquery()
-    )
+    ultimos = _ultimo_evento_por_item(material_id)
     return list(
         db.scalars(
             select(EventoItem.item_id)
@@ -90,3 +98,32 @@ def registrar_avance(db: Session, operador: Operador, datos: AvanceIn) -> int:
         raise
 
     return len(item_ids)
+
+
+def listar_pendientes(db: Session, etapa_orden: int) -> list[dict]:
+    """Material que espera para pasar a la etapa indicada, por servicio y material.
+
+    Usa el mismo criterio que registrar_avance: ítems cuyo último evento es de la
+    etapa anterior. Es una consulta de solo lectura.
+    """
+    ultimos = _ultimo_evento_por_item()
+    filas = db.execute(
+        select(
+            Servicio.id.label("servicio_id"),
+            Servicio.nombre.label("servicio"),
+            Material.id.label("material_id"),
+            Material.nombre.label("material"),
+            func.count(Item.id).label("cantidad"),
+        )
+        .select_from(EventoItem)
+        .join(ultimos, ultimos.c.id == EventoItem.id)
+        .join(Etapa, Etapa.id == EventoItem.etapa_id)
+        .join(Item, Item.id == EventoItem.item_id)
+        .join(Recepcion, Recepcion.id == Item.recepcion_id)
+        .join(Servicio, Servicio.id == Recepcion.servicio_id)
+        .join(Material, Material.id == Item.material_id)
+        .where(Etapa.orden == etapa_orden - 1)
+        .group_by(Servicio.id, Servicio.nombre, Material.id, Material.nombre)
+        .order_by(Servicio.nombre, Material.nombre)
+    ).mappings()
+    return [dict(fila) for fila in filas]
