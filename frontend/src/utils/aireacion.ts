@@ -2,14 +2,10 @@ import type { Equipo, Servicio } from '../types'
 
 // * La aireación no se guarda: se deduce (ver "Datos que no se guardan" en docs/DER.md).
 // * Fin de aireación de un ítem = lote.fin + servicio.dias_aireacion de su servicio de origen.
-// * Solo la llevan los lotes de óxido de etileno.
-
-// ? El modelo no marca qué método lleva aireación: lo reconocemos por el nombre
-// ? que carga la migración 0002.
-const METODO_CON_AIREACION = 'Óxido de etileno'
+// * Solo la llevan los métodos con metodo_esterilizacion.requiere_aireacion (migración 0010).
 
 export function llevaAireacion(equipo: Equipo): boolean {
-  return equipo.metodo.nombre === METODO_CON_AIREACION
+  return equipo.metodo.requiere_aireacion
 }
 
 // null si el lote no lleva aireación o todavía no terminó

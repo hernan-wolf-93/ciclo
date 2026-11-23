@@ -148,7 +148,7 @@ def test_filtro_urgentes(cliente_pg, db_pg, operador, servicio, materiales):
 
 
 def test_filtro_por_servicio_y_por_material(cliente_pg, db_pg, operador, materiales):
-    quirofano, guardia = _servicio(db_pg, "Quirófano"), _servicio(db_pg, "Guardia")
+    quirofano, guardia = _servicio(db_pg, "Quirófano"), _servicio(db_pg, "Guardia Mayor")
     de_quirofano, _ = _recepcion(db_pg, operador, quirofano, [(materiales[0], 1)])
     de_guardia, _ = _recepcion(db_pg, operador, guardia, [(materiales[1], 1)])
 

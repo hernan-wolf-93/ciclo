@@ -28,18 +28,14 @@ from app.schemas.lote import (
 
 ORDEN_ESTERILIZACION = 4
 
-# Mismo criterio que frontend/src/utils/aireacion.ts: el modelo no marca qué
-# método lleva aireación, así que se reconoce por el nombre de la migración 0002.
-METODO_CON_AIREACION = "Óxido de etileno"
-
-
-def fin_aireacion(nombre_metodo: str, fin: datetime | None, dias_max: int | None) -> datetime | None:
+def fin_aireacion(requiere_aireacion: bool, fin: datetime | None, dias_max: int | None) -> datetime | None:
     """Fin de la aireación de un lote: lote.fin + el mayor dias_aireacion de sus ítems.
 
+    requiere_aireacion es metodo_esterilizacion.requiere_aireacion (migración 0010).
     Devuelve None si el método no lleva aireación, si el lote no terminó o si no
     tiene ítems. Es la misma regla que el frontend aplica ítem por ítem.
     """
-    if nombre_metodo != METODO_CON_AIREACION or fin is None or dias_max is None:
+    if requiere_aireacion is not True or fin is None or dias_max is None:
         return None
     return fin + timedelta(days=dias_max)
 
@@ -83,7 +79,7 @@ def listar_lotes(db: Session, numero: int | None = None) -> list[LoteResumenOut]
             equipo=EquipoOut.model_validate(equipos[lote.equipo_id]),
             resultado=lote.resultado,
             aireacion_fin_max=fin_aireacion(
-                equipos[lote.equipo_id].metodo.nombre, lote.fin, dias.get(lote.id)
+                equipos[lote.equipo_id].metodo.requiere_aireacion, lote.fin, dias.get(lote.id)
             ),
         )
         for lote in lotes
@@ -119,9 +115,8 @@ def _lotes_vecinos(
 
 
 def _primer_lote(db: Session, ids: set[int]) -> LoteRef | None:
-    # TODO: si los ítems de un lote fallido se reesterilizaron en lotes distintos,
-    # se devuelve el primero por fecha de inicio. Pendiente con el servicio:
-    # "¿un lote falla siempre completo?" (docs/DER.md).
+    # El lote falla siempre completo (docs/RESPUESTAS-SERVICIO.md): sus ítems van a un
+    # mismo lote de reemplazo. Si hubiera varios candidatos, se toma el primero por inicio.
     if not ids:
         return None
     lote = db.scalar(select(Lote).where(Lote.id.in_(ids)).order_by(Lote.inicio, Lote.id).limit(1))
@@ -195,6 +190,7 @@ def obtener_lote(db: Session, lote_id: int) -> LoteDetalleOut | None:
         fin=lote.fin,
         resultado=lote.resultado,
         observacion=lote.observacion,
+        numero_ciclo=lote.numero_ciclo,
         equipo=EquipoOut.model_validate(equipo),
         programa=ProgramaOut.model_validate(programa),
         operador=OperadorOut.model_validate(operadores[lote.operador_id]),

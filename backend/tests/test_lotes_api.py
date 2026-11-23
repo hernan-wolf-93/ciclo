@@ -161,10 +161,13 @@ def test_detalle_con_items_e_historial(cliente_pg, db_pg, operador, autoclave, s
     assert detalle["resultado"] == "aprobado"
     assert detalle["equipo"]["metodo"]["nombre"] == "Calor húmedo"
     assert detalle["operador"] == {"id": operador.id, "numero_operador": operador.numero_operador}
-    # Pendientes de la migración 0008: llegan en null
+    # Desde la migración 0010: el lote de la prueba no tiene número de ciclo, y el
+    # programa trae los parámetros reales cargados en la base
     assert detalle["numero_ciclo"] is None
-    parametros = ["temperatura_c", "tiempo_esterilizacion_min", "tiempo_secado_min", "vacio_bar", "vapor_bar", "pulsos"]
-    assert all(detalle["programa"][campo] is None for campo in parametros)
+    programa = db_pg.get(Programa, lote.programa_id)
+    assert detalle["programa"]["temperatura_c"] == float(programa.temperatura_c)
+    assert detalle["programa"]["tiempo_esterilizacion_min"] == programa.tiempo_esterilizacion_min
+    assert detalle["programa"]["tiempo_desgasificacion_min"] is None
     assert detalle["reemplazado_por"] is None and detalle["reemplaza_a"] is None
 
     assert [i["id"] for i in detalle["items"]] == [item.id]
@@ -202,9 +205,9 @@ def test_lote_fallido_y_su_reemplazo(cliente_pg, db_pg, operador, autoclave, ser
 
 
 def test_aireacion_usa_el_servicio_con_mas_dias(cliente_pg, db_pg, operador, oxido, materiales):
-    consultorios = _servicio(db_pg, "Consultorios")
+    consultorios = _servicio(db_pg, "Consultorios Externos")
     pediatria = _servicio(db_pg, "Pediatría")
-    pediatria.dias_aireacion = 7  # en la base está en 3 hasta la migración 0008
+    pediatria.dias_aireacion = 7  # ya vale 7 desde la migración 0010; se fija igual para que la prueba no dependa de eso
     fin = INICIO + timedelta(hours=5)
     lote = _lote(db_pg, operador, oxido, numero=11, resultado="aprobado", fin=fin)
     for servicio_origen in (consultorios, pediatria):
