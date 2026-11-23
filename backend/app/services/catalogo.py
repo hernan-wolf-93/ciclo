@@ -42,7 +42,18 @@ def listar_equipos(db: Session) -> list[dict]:
 
 def listar_programas(db: Session, equipo_id: int | None = None) -> list[dict]:
     """Programas de esterilización. Con equipo_id, solo los del método de ese equipo."""
-    consulta = select(Programa.id, Programa.nombre, Programa.metodo_id).order_by(Programa.nombre)
+    consulta = select(
+        Programa.id,
+        Programa.nombre,
+        Programa.metodo_id,
+        Programa.temperatura_c,
+        Programa.tiempo_esterilizacion_min,
+        Programa.tiempo_secado_min,
+        Programa.tiempo_desgasificacion_min,
+        Programa.vacio_bar,
+        Programa.vapor_bar,
+        Programa.pulsos,
+    ).order_by(Programa.nombre)
     if equipo_id is not None:
         equipo = db.get(Equipo, equipo_id)
         if equipo is None:
