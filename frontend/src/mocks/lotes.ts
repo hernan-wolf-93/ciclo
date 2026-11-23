@@ -26,7 +26,7 @@ const METODOS: MetodoEsterilizacion[] = [
 
 const metodo = (id: number) => METODOS.find((m) => m.id === id)!
 
-const EQUIPOS: Equipo[] = [
+export const EQUIPOS: Equipo[] = [
   { id: 1, nombre: 'Autoclave 1', metodo_id: 1, metodo: metodo(1) },
   { id: 2, nombre: 'Autoclave 2', metodo_id: 1, metodo: metodo(1) },
   { id: 3, nombre: 'Estufa 1', metodo_id: 2, metodo: metodo(2) },
@@ -39,7 +39,7 @@ const EQUIPOS: Equipo[] = [
 // ! Los parámetros de programa y los programas Líquidos y Priones necesitan
 // ! la migración 0008: hoy la base solo tiene nombre y metodo_id, y carga
 // ! Textil, Instrumental y Gomas.
-const PROGRAMAS: Programa[] = [
+export const PROGRAMAS: Programa[] = [
   {
     id: 1, nombre: 'Textil 134 °C', metodo_id: 1,
     temperatura_c: 134, tiempo_esterilizacion_min: 10, tiempo_secado_min: 10,

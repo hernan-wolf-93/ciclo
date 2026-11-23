@@ -165,6 +165,58 @@ export interface LoteDetalle {
 
 // Estado que muestra la pantalla. No se guarda: se deduce de fin, resultado y aireación.
 export type EstadoLote = 'en_curso' | 'en_aireacion' | 'aprobado' | 'fallido'
+
+// ---------------------------------------------------------------------------
+// Pantalla de Esterilización: armar la carga de un equipo y cerrar el ciclo
+// * El operador sale de la sesión y los datos del ciclo, del programa elegido.
+// ---------------------------------------------------------------------------
+
+// GET /avances/pendientes?etapa_orden=4&equipo_id=: unidades listas para cargar,
+// por servicio de origen y material (no ítems sueltos)
+export interface PendienteCarga {
+  servicio: Servicio
+  material: Material
+  cantidad: number
+}
+
+// Una línea de la carga: cuántas unidades de un material de un servicio
+export interface LineaLote {
+  servicio_id: number
+  material_id: number
+  cantidad: number
+}
+
+// Lo que la pantalla manda en POST /lotes
+export interface NuevoLote {
+  equipo_id: number
+  programa_id: number
+  numero: number // de 1 a 999: el sistema lo propone y el operador puede corregirlo
+  lineas: LineaLote[]
+}
+
+// Lo que devuelve POST /lotes (201)
+export interface LoteCreado {
+  id: number
+  numero: number
+  equipo_id: number
+  inicio: string
+}
+
+// Lo que la pantalla manda en POST /lotes/{id}/cierre
+export interface CierreLote {
+  resultado: ResultadoLote
+  numero_ciclo?: string // el que imprime el ticket de la máquina (opcional)
+  observacion?: string // obligatoria si resultado es 'fallido'
+}
+
+// Un lote en curso (resultado null), para la sección "Ciclos en curso"
+export interface LoteAbierto {
+  id: number
+  numero: number
+  inicio: string
+  equipo: Equipo
+  programa: Programa
+}
 // Operador con sesión iniciada (respuesta de GET /auth/me)
 export interface Usuario {
   id: number
