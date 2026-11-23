@@ -25,6 +25,13 @@ class ProgramaOut(BaseModel):
     id: int
     nombre: str
     metodo_id: int
+    temperatura_c: float | None
+    tiempo_esterilizacion_min: int | None
+    tiempo_secado_min: int | None
+    tiempo_desgasificacion_min: int | None
+    vacio_bar: float | None
+    vapor_bar: float | None
+    pulsos: int | None
 
 
 class ProximoNumeroOut(BaseModel):

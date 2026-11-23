@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import obtener_db
+from app.api.deps import obtener_db, obtener_operador_actual
 from app.core.config import settings
 from app.core.database import Base
 from app.core.seguridad import hashear_contrasena
@@ -159,3 +159,11 @@ def cliente_pg(db_pg):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    
+
+@pytest.fixture
+def con_sesion(cliente_pg, operador):
+    """Cliente con sesión iniciada. Reemplaza solo la identificación del operador;
+    cliente_pg limpia los reemplazos al terminar."""
+    app.dependency_overrides[obtener_operador_actual] = lambda: operador
+    return cliente_pg
