@@ -110,8 +110,8 @@ def _regla_del_item(etapa: int, desde_evento: datetime, info: _InfoLote | None,
 def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
     """Avisos agrupados por recepción, material, etapa y motivo.
 
-    Primero los detenidos, del que más se pasó de su umbral al que menos; después
-    los listos para retirar, del más viejo al más nuevo.
+    Primero los detenidos: los graves, después por proporción de su umbral y después
+    por antigüedad. Al final los listos para retirar, del más viejo al más nuevo.
     """
     # TODO: hoy se revisan todos los ítems; si el volumen crece, filtrar los entregados en SQL.
     items = list(db.scalars(select(Item).order_by(Item.id)))
@@ -189,13 +189,27 @@ def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
                 desde=desde,
                 minutos_transcurridos=minutos,
                 umbral_minutos=clave.umbral,
+                gravedad=(
+                    reglas.gravedad(clave.motivo, minutos, clave.umbral)
+                    if clave.tipo == "detenido" and clave.umbral is not None
+                    else None
+                ),
                 motivo=MOTIVOS[clave.motivo].format(dur=reglas.duracion(minutos), lote=texto_lote),
             )
         )
 
+    # Detenidos: primero los graves; después, cuántas veces se cumplió el umbral de su
+    # etapa (los umbrales son muy distintos entre etapas, por eso no se comparan minutos);
+    # a igual proporción, el más antiguo.
     detenidos = sorted(
         (a for a in avisos if a.tipo == "detenido"),
-        key=lambda a: (-(a.minutos_transcurridos - (a.umbral_minutos or 0)), a.recepcion_id, a.material.nombre),
+        key=lambda a: (
+            a.gravedad != "alta",
+            -reglas.proporcion(a.minutos_transcurridos, a.umbral_minutos or 0),
+            a.desde,
+            a.recepcion_id,
+            a.material.nombre,
+        ),
     )
     listos = sorted((a for a in avisos if a.tipo == "listo_para_retirar"), key=lambda a: (a.desde, a.recepcion_id))
     return detenidos + listos

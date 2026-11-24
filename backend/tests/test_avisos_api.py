@@ -232,6 +232,63 @@ def test_detenidos_primero_y_despues_listos(cliente_pg, db_pg, operador, oxido, 
     assert [a["tipo"] for a in _avisos(cliente_pg, operador)] == ["detenido", "listo_para_retirar"]
 
 
+# ---------------------------------------------------------------------------
+# Gravedad y orden (tarjeta "Panel Requieren atención")
+# ---------------------------------------------------------------------------
+
+
+def test_gravedad_media_y_alta_segun_el_umbral_de_la_etapa(cliente_pg, db_pg, operador, servicio, materiales):
+    umbral = reglas.UMBRAL_POR_ETAPA_MIN[1]
+    _items(db_pg, operador, servicio, materiales[0], 1, AHORA - timedelta(minutes=umbral + 10))
+    _items(db_pg, operador, servicio, materiales[1], 1, AHORA - timedelta(minutes=reglas.FACTOR_GRAVE * umbral))
+
+    por_material = {a["material"]["id"]: a for a in _avisos(cliente_pg, operador)}
+    assert por_material[materiales[0].id]["gravedad"] == "media"
+    assert por_material[materiales[1].id]["gravedad"] == "alta"
+
+
+def test_lote_fallido_es_grave(cliente_pg, db_pg, operador, autoclave, servicio, materiales):
+    lote = _lote(db_pg, operador, autoclave, 1, AHORA - timedelta(hours=3), AHORA - timedelta(minutes=61), "fallido")
+    _a_etapa(db_pg, _items(db_pg, operador, servicio, materiales[0], 1, AHORA - timedelta(hours=5)), operador, 4,
+             AHORA - timedelta(hours=3), lote)
+    assert _avisos(cliente_pg, operador)[0]["gravedad"] == "alta"
+
+
+def test_listo_para_retirar_no_tiene_gravedad(cliente_pg, db_pg, operador, oxido, servicio, materiales):
+    fin = AHORA - timedelta(days=5)
+    lote = _lote(db_pg, operador, oxido, 1, fin - timedelta(hours=15), fin, "aprobado")
+    _a_etapa(db_pg, _items(db_pg, operador, servicio, materiales[0], 1, fin - timedelta(days=1)), operador, 5,
+             fin, lote)
+    aviso = _avisos(cliente_pg, operador)[0]
+    assert (aviso["tipo"], aviso["gravedad"]) == ("listo_para_retirar", None)
+
+
+def test_orden_por_gravedad_y_proporcion_del_umbral_y_no_por_minutos(
+    cliente_pg, db_pg, operador, oxido, servicio, materiales
+):
+    """Con umbrales distintos, ordenar por minutos de exceso favorecería al óxido de etileno."""
+    # Óxido de etileno: lote sin cerrar 1,5 veces su umbral (exceso grande en minutos, gravedad media)
+    lote = _lote(db_pg, operador, oxido, 1, AHORA - timedelta(minutes=1350))
+    oxido_items = _items(db_pg, operador, servicio, materiales[0], 1, AHORA - timedelta(hours=30))
+    _a_etapa(db_pg, oxido_items, operador, 4, AHORA - timedelta(minutes=1350), lote)
+    # Recepción: 1,25 veces su umbral (exceso chico en minutos, gravedad media)
+    umbral = reglas.UMBRAL_POR_ETAPA_MIN[1]
+    _items(db_pg, operador, servicio, materiales[1], 1, AHORA - timedelta(minutes=int(umbral * 1.25)))
+    # Recepción: el doble de su umbral (grave): va primero aunque su exceso en minutos sea el menor de los graves
+    otro_servicio = db_pg.scalar(select(Servicio).where(Servicio.id != servicio.id, Servicio.activo.is_(True)))
+    _items(db_pg, operador, otro_servicio, materiales[1], 1, AHORA - timedelta(minutes=reglas.FACTOR_GRAVE * umbral))
+
+    avisos = _avisos(cliente_pg, operador)
+    assert [(a["etapa_orden"], a["gravedad"]) for a in avisos] == [(1, "alta"), (4, "media"), (1, "media")]
+
+
+def test_a_igual_proporcion_va_primero_el_mas_antiguo(cliente_pg, db_pg, operador, servicio, materiales):
+    umbral = reglas.UMBRAL_POR_ETAPA_MIN[1]
+    nuevo = _items(db_pg, operador, servicio, materiales[0], 1, AHORA - timedelta(minutes=umbral + 30))
+    viejo = _items(db_pg, operador, servicio, materiales[1], 1, AHORA - timedelta(minutes=umbral + 30, seconds=20))
+    assert [a["recepcion_id"] for a in _avisos(cliente_pg, operador)] == [viejo[0].recepcion_id, nuevo[0].recepcion_id]
+
+
 def test_no_se_filtra_el_hash_de_la_contrasena(cliente_pg, db_pg, operador, servicio, materiales):
     _items(db_pg, operador, servicio, materiales[0], 1, AHORA - timedelta(hours=6))
     r = cliente_pg.get("/avisos", headers=_auth(operador))

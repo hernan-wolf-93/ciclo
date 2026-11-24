@@ -46,7 +46,17 @@
   line-height: 1.1;
 }
 
-/* Panel "Requieren atención": borde naranja para que se note arriba del tablero */
+/* Panel "Requieren atención": borde naranja para que se note arriba del tablero,
+   rojo si hay algún aviso grave */
 .panelAtencion {
   border-left: 6px solid var(--mantine-color-orange-6);
+}
+
+.panelAtencionGrave {
+  border-left: 6px solid var(--mantine-color-red-7);
+}
+
+/* Fila de un aviso grave dentro del panel */
+.avisoGrave {
+  background: var(--mantine-color-red-0);
 }
