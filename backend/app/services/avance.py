@@ -22,7 +22,7 @@ class ErrorDeAvance(Exception):
     """Una regla de negocio no se cumple. El router la responde como 422."""
 
 
-def _ultimo_evento_por_item(material_id: int | None = None):
+def ultimo_evento_por_item(material_id: int | None = None):
     """Subconsulta con el id del último evento de cada ítem (el de mayor id).
 
     Con material_id, solo de los ítems de ese material.
@@ -46,7 +46,7 @@ def _items_en_espera(
     misma transacción comparten fecha_hora. Con excluir se saltean ítems que otra
     línea del mismo pedido ya eligió.
     """
-    ultimos = _ultimo_evento_por_item(material_id)
+    ultimos = ultimo_evento_por_item(material_id)
     consulta = (
         select(EventoItem.item_id)
         .join(ultimos, ultimos.c.id == EventoItem.id)
@@ -158,7 +158,7 @@ def listar_pendientes(db: Session, etapa_orden: int) -> list[dict]:
     Usa el mismo criterio que registrar_avance: ítems cuyo último evento es de la
     etapa anterior. Es una consulta de solo lectura.
     """
-    ultimos = _ultimo_evento_por_item()
+    ultimos = ultimo_evento_por_item()
     filas = db.execute(
         select(
             Servicio.id.label("servicio_id"),
