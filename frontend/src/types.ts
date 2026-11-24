@@ -315,5 +315,7 @@ export interface Aviso {
   desde: string
   minutos_transcurridos: number // calculado en el servidor
   umbral_minutos: number | null // null en "listo para retirar"
+  // Solo en "detenido": alta si lleva el doble de su umbral (o el lote falló). Provisorio.
+  gravedad: 'alta' | 'media' | null
   motivo: string // texto listo para mostrar
 }

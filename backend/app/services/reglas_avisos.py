@@ -40,6 +40,16 @@ UMBRAL_TRAS_CIERRE_MIN = 60
 # almacén no se omite (docs/RESPUESTAS-SERVICIO.md).
 AVISAR_FALTA_ALMACEN = True
 
+# Gravedad de un material detenido. Se compara contra el umbral de su propia etapa
+# (no por minutos fijos), porque los umbrales van de 2 h (Recepción) a 15 h (óxido de
+# etileno): es grave cuando lo transcurrido llega a FACTOR_GRAVE veces su umbral.
+# TODO: factor provisorio; confirmar con el servicio.
+FACTOR_GRAVE = 2
+
+# Motivos que son graves siempre, sin importar el tiempo: un lote fallido tiene
+# material que no está estéril y hay que reesterilizar.
+MOTIVOS_SIEMPRE_GRAVES = frozenset({"lote_fallido"})
+
 
 def minutos_entre(desde: datetime, ahora: datetime) -> int:
     """Minutos enteros transcurridos. Las dos fechas tienen que tener zona horaria."""
@@ -75,6 +85,18 @@ def umbral_esterilizacion_programa(nombre_metodo: str, duracion_min: int | None)
     if duracion_min is None:
         return piso
     return max(duracion_min + MARGEN_ESTERILIZACION_MIN, piso)
+
+
+def gravedad(motivo: str | int, minutos: int, umbral_min: int) -> str:
+    """'alta' o 'media' para un material detenido."""
+    if motivo in MOTIVOS_SIEMPRE_GRAVES or minutos >= FACTOR_GRAVE * umbral_min:
+        return "alta"
+    return "media"
+
+
+def proporcion(minutos: int, umbral_min: int) -> float:
+    """Cuántas veces se cumplió el umbral (1.0 = justo en el umbral)."""
+    return minutos / umbral_min if umbral_min > 0 else float("inf")
 
 
 def duracion(minutos: int) -> str:
