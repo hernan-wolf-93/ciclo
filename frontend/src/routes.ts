@@ -42,5 +42,6 @@ export const pantallas: Pantalla[] = [
     area: 'verde',
     franja: 'Área verde: entrega por ventanilla',
   },
+  { path: '/catalogos', label: 'Catálogos', soloAdmin: true },
   { path: '/usuarios', label: 'Usuarios', soloAdmin: true },
 ]

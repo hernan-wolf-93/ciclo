@@ -5,7 +5,7 @@ export interface Servicio {
   id: number
   nombre: string
   dias_aireacion: number // días de aireación de óxido de etileno según el origen (migración 0007)
-  externo?: boolean // centro externo (migración 0010); GET /servicios todavía no lo devuelve
+  externo?: boolean // centro externo (migración 0010); solo viene con ?incluir_inactivos=true (ver ServicioAdmin)
 }
 
 export interface Material {
@@ -184,6 +184,26 @@ export interface UsuarioAdmin {
   id: number
   numero_operador: string
   rol: string // nombre del rol
+  activo: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos (ABM de servicios y materiales, solo administradores)
+// * Vienen de GET /servicios y GET /materiales con ?incluir_inactivos=true.
+// ---------------------------------------------------------------------------
+export interface ServicioAdmin {
+  id: number
+  nombre: string
+  externo: boolean // centro externo: otro hospital, área programática o sanatorio
+  dias_aireacion: number // 0 a 365
+  activo: boolean
+}
+
+export interface MaterialAdmin {
+  id: number
+  nombre: string
+  codigo: string | null // en mayúsculas y sin espacios
+  nombre_alternativo: string | null
   activo: boolean
 }
 
