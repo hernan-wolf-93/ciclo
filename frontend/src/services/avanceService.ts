@@ -1,16 +1,16 @@
 import axios from 'axios'
 import { api } from './api'
-import type { AvanceRegistrado, EtapaAvance, Material, NuevoAvance, Pendiente } from '../types'
+import type { AvanceRegistrado, EtapaAvance, Material, Metodo, NuevoAvance, Pendiente } from '../types'
 
-// GET /materiales: catálogo de la base (los ids coinciden con los que valida POST /avances)
+// GET /materiales: catálogo de materiales activos. La pantalla de avance lo usa solo
+// para mostrar el código al lado del nombre (los pendientes no lo traen).
 export async function obtenerMateriales(): Promise<Material[]> {
   const { data } = await api.get<Material[]>('/materiales')
   return data
 }
 
-// Unidades que esperan pasar a la etapa, por servicio y material.
-// TODO: GET /avances/pendientes?etapa_orden={etapa}. Está acordado con Lobo pero todavía
-// no existe: cuando esté, la pantalla mostrará solo lo que espera, con su cantidad.
+// GET /avances/pendientes?etapa_orden={etapa}: unidades que esperan pasar a la etapa,
+// por servicio de origen y material (incluye materiales dados de baja con ítems en curso).
 export async function obtenerPendientes(etapa: EtapaAvance): Promise<Pendiente[]> {
   const { data } = await api.get<Pendiente[]>('/avances/pendientes', {
     params: { etapa_orden: etapa },
@@ -18,8 +18,14 @@ export async function obtenerPendientes(etapa: EtapaAvance): Promise<Pendiente[]
   return data
 }
 
+// GET /metodos: calor húmedo, calor seco y óxido de etileno
+export async function obtenerMetodos(): Promise<Metodo[]> {
+  const { data } = await api.get<Metodo[]>('/metodos')
+  return data
+}
+
 // POST /avances: el operador que firma sale del token (no va en el cuerpo).
-// TODO: en Empaque, mandar el método por línea (metodo_id) cuando Lobo ajuste la API.
+// En Empaque cada línea lleva su metodo_id; en Lavado, ninguna.
 export async function registrarAvance(datos: NuevoAvance): Promise<AvanceRegistrado> {
   const { data } = await api.post<AvanceRegistrado>('/avances', datos)
   return data

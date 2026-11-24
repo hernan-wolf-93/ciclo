@@ -1,24 +1,135 @@
-import { useEffect, useState } from 'react'
-import { ActionIcon, Alert, Button, Checkbox, Group, Loader, Paper, SimpleGrid, Stack, Text, Textarea, Title } from '@mantine/core'
-import { mensajeDeError, obtenerMateriales, registrarAvance } from '../services/avanceService'
-import type { AvanceRegistrado, EtapaAvance, Material } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  Checkbox,
+  Group,
+  Loader,
+  Paper,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  Textarea,
+  Title,
+} from '@mantine/core'
+import {
+  mensajeDeError,
+  obtenerMateriales,
+  obtenerMetodos,
+  obtenerPendientes,
+  registrarAvance,
+} from '../services/avanceService'
+import type { AvanceRegistrado, EtapaAvance, Metodo, Pendiente } from '../types'
 
 // * Una misma pantalla para las dos etapas: /lavado (área sucia, rojo) y
 // * /empaque (área limpia, azul). El operador que firma sale del token.
+// * Solo se muestra el material que espera en la etapa anterior (GET /avances/pendientes).
 const ETAPAS: Record<EtapaAvance, { titulo: string; color: string; fondo: string; anterior: string }> = {
   2: { titulo: 'Lavado y secado', color: 'var(--rojo)', fondo: '#fdecea', anterior: 'Recepción' },
   3: { titulo: 'Empaque y rotulación', color: 'var(--azul)', fondo: '#e7eef8', anterior: 'Lavado y secado' },
+}
+
+// Material que espera, con la suma de todos los servicios de origen: el avance toma
+// los ítems más antiguos del material sin mirar el servicio.
+interface Disponible {
+  material_id: number
+  nombre: string
+  cantidad: number
+}
+
+// Lo que se carga. En Lavado, una línea por material y sin método.
+// En Empaque, una línea por material y método (el mismo material puede ir en dos).
+interface Linea {
+  clave: number // solo para React
+  material_id: number
+  metodo_id: number | null
+  cantidad: number
+}
+
+function sumarPorMaterial(pendientes: Pendiente[]): Disponible[] {
+  const porMaterial = new Map<number, Disponible>()
+  for (const p of pendientes) {
+    const actual = porMaterial.get(p.material_id)
+    if (actual) actual.cantidad += p.cantidad
+    else porMaterial.set(p.material_id, { material_id: p.material_id, nombre: p.material, cantidad: p.cantidad })
+  }
+  return [...porMaterial.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+// Tras recargar los pendientes, lo cargado no puede pasar de lo que espera ahora
+function ajustarALoDisponible(lineas: Linea[], disponibles: Disponible[]): Linea[] {
+  const tope = new Map(disponibles.map((d) => [d.material_id, d.cantidad]))
+  const usado = new Map<number, number>()
+  const resultado: Linea[] = []
+  for (const l of lineas) {
+    const resto = (tope.get(l.material_id) ?? 0) - (usado.get(l.material_id) ?? 0)
+    const cantidad = Math.min(l.cantidad, resto)
+    if (cantidad <= 0) continue
+    usado.set(l.material_id, (usado.get(l.material_id) ?? 0) + cantidad)
+    resultado.push({ ...l, cantidad })
+  }
+  return resultado
+}
+
+// Botones − cantidad + de una línea. El + se deshabilita al llegar a lo que espera.
+function Contador({
+  cantidad,
+  nombre,
+  color,
+  puedeSumar,
+  onRestar,
+  onSumar,
+}: {
+  cantidad: number
+  nombre: string
+  color: string
+  puedeSumar: boolean
+  onRestar: () => void
+  onSumar: () => void
+}) {
+  return (
+    <Group gap="xs" wrap="nowrap">
+      <ActionIcon
+        size="xl"
+        fz={22}
+        variant="default"
+        disabled={cantidad === 0}
+        onClick={onRestar}
+        aria-label={`Quitar una unidad de ${nombre}`}
+      >
+        −
+      </ActionIcon>
+      <Text fw={700} size="xl" w={32} ta="center">
+        {cantidad}
+      </Text>
+      <ActionIcon
+        size="xl"
+        fz={22}
+        color={color}
+        disabled={!puedeSumar}
+        onClick={onSumar}
+        aria-label={`Agregar una unidad de ${nombre}`}
+      >
+        +
+      </ActionIcon>
+    </Group>
+  )
 }
 
 export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
   const { titulo, color, fondo, anterior } = ETAPAS[etapa]
   const esLavado = etapa === 2
 
-  const [materiales, setMateriales] = useState<Material[]>([])
+  const [disponibles, setDisponibles] = useState<Disponible[]>([])
+  const [codigos, setCodigos] = useState<Record<number, string | null>>({})
+  const [metodos, setMetodos] = useState<Metodo[]>([])
   const [cargando, setCargando] = useState(true)
+  const [recarga, setRecarga] = useState(0)
 
-  // * Cuántas unidades de cada material, por id. Solo los que tienen 1 o más.
-  const [cantidades, setCantidades] = useState<Record<number, number>>({})
+  const [lineas, setLineas] = useState<Linea[]>([])
+  const proximaClave = useRef(1)
 
   // * Solo en Lavado: material que no se lava, solo se desinfecta (ej.: cajas de ortopedia)
   const [soloDesinfeccion, setSoloDesinfeccion] = useState(false)
@@ -26,35 +137,78 @@ export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const [marcarSinMetodo, setMarcarSinMetodo] = useState(false)
   const [registrado, setRegistrado] = useState<AvanceRegistrado | null>(null)
 
-  // TODO: cuando exista GET /avances/pendientes, mostrar solo lo que espera en la
-  // etapa anterior, con su cantidad (obtenerPendientes en avanceService.ts).
+  // Pendientes de la etapa: al entrar y después de cada avance (o de un rechazo)
+  useEffect(() => {
+    let vigente = true
+    obtenerPendientes(etapa)
+      .then((pendientes) => {
+        if (!vigente) return
+        const nuevos = sumarPorMaterial(pendientes)
+        setDisponibles(nuevos)
+        setLineas((actuales) => ajustarALoDisponible(actuales, nuevos))
+      })
+      .catch((e) => vigente && setError(mensajeDeError(e)))
+      .finally(() => vigente && setCargando(false))
+    return () => {
+      vigente = false
+    }
+  }, [etapa, recarga])
+
+  // El código del material es solo informativo: si falla, se muestra sin código
   useEffect(() => {
     obtenerMateriales()
-      .then(setMateriales)
-      .catch((e) => setError(mensajeDeError(e)))
-      .finally(() => setCargando(false))
+      .then((lista) => setCodigos(Object.fromEntries(lista.map((m) => [m.id, m.codigo]))))
+      .catch(() => setCodigos({}))
   }, [])
 
-  // Suma o resta unidades de un material (diferencia = +1 o -1)
-  function cambiarCantidad(materialId: number, diferencia: number) {
-    setCantidades((anteriores) => {
-      const nueva = (anteriores[materialId] ?? 0) + diferencia
-      const copia = { ...anteriores }
-      if (nueva <= 0) delete copia[materialId]
-      else copia[materialId] = nueva
-      return copia
-    })
+  useEffect(() => {
+    if (esLavado) return
+    obtenerMetodos()
+      .then(setMetodos)
+      .catch((e) => setError(mensajeDeError(e)))
+  }, [esLavado])
+
+  const recargarPendientes = () => {
+    setCargando(true)
+    setRecarga((n) => n + 1)
   }
 
-  const totalUnidades = Object.values(cantidades).reduce((suma, c) => suma + c, 0)
+  const usadoDe = (materialId: number) =>
+    lineas.filter((l) => l.material_id === materialId).reduce((suma, l) => suma + l.cantidad, 0)
+
+  const agregarLinea = (materialId: number) => {
+    const clave = proximaClave.current++
+    setLineas((actuales) => [...actuales, { clave, material_id: materialId, metodo_id: null, cantidad: 1 }])
+  }
+
+  // Suma o resta unidades de una línea (diferencia = +1 o -1). En 0 la línea se quita.
+  const cambiarCantidad = (clave: number, diferencia: number) => {
+    setLineas((actuales) =>
+      actuales
+        .map((l) => (l.clave === clave ? { ...l, cantidad: l.cantidad + diferencia } : l))
+        .filter((l) => l.cantidad > 0),
+    )
+  }
+
+  const elegirMetodo = (clave: number, metodoId: number | null) => {
+    setLineas((actuales) => actuales.map((l) => (l.clave === clave ? { ...l, metodo_id: metodoId } : l)))
+    setError('')
+  }
+
+  const totalUnidades = lineas.reduce((suma, l) => suma + l.cantidad, 0)
 
   async function confirmar() {
     setRegistrado(null)
 
     // * Validamos de arriba hacia abajo y avisamos lo primero que falte
     if (totalUnidades === 0) return setError('Cargá al menos un material.')
+    if (!esLavado && lineas.some((l) => l.metodo_id === null)) {
+      setMarcarSinMetodo(true)
+      return setError('Elegí el método de esterilización de cada línea de Empaque.')
+    }
     if (soloDesinfeccion && observacion.trim() === '')
       return setError('Si solo se desinfecta, escribí una observación (por ej., qué caja es).')
 
@@ -64,85 +218,138 @@ export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
     try {
       const resultado = await registrarAvance({
         etapa_orden: etapa,
-        // Pasamos de { 3: 2, 12: 1 } a [{ material_id: 3, cantidad: 2 }, ...]
-        items: Object.entries(cantidades).map(([id, cantidad]) => ({ material_id: Number(id), cantidad })),
+        items: lineas.map((l) =>
+          esLavado
+            ? { material_id: l.material_id, cantidad: l.cantidad }
+            : { material_id: l.material_id, cantidad: l.cantidad, metodo_id: l.metodo_id ?? undefined },
+        ),
         solo_desinfeccion: esLavado && soloDesinfeccion,
         observacion: observacion.trim() || undefined,
       })
       setRegistrado(resultado)
 
       // Limpiamos para la próxima carga
-      setCantidades({})
+      setLineas([])
+      setMarcarSinMetodo(false)
       setSoloDesinfeccion(false)
       setObservacion('')
     } catch (e) {
+      // Puede que otro operador haya avanzado esos ítems: se muestra el motivo y se recarga
       setError(mensajeDeError(e))
     } finally {
       setEnviando(false)
+      recargarPendientes()
     }
   }
+
+  // + de una línea; en Lavado, si el material todavía no tiene línea, la crea
+  const sumar = (linea: Linea | undefined, materialId: number) =>
+    linea ? cambiarCantidad(linea.clave, 1) : agregarLinea(materialId)
 
   return (
     <Stack gap="xl" maw={900}>
       <Title order={1}>{titulo}</Title>
 
-      <Alert color="gray" variant="light">
-        Cargá las unidades que pasan de {anterior} a {titulo}. Por ahora se muestran todos los
-        materiales: si se piden más unidades de las que esperan, el sistema avisa cuántas hay.
-      </Alert>
+      <Text c="dimmed">
+        Cargá las unidades que pasan de {anterior} a {titulo}. Se muestra solo el material que espera
+        en {anterior}, con la cantidad disponible.
+        {!esLavado && ' Elegí el método de esterilización de cada línea: cada método lleva otro envoltorio.'}
+      </Text>
 
-      {/* 1. Materiales: cada uno con botones − y + */}
+      {/* 1. Materiales que esperan */}
       <section>
         <Text fw={700} size="lg" mb="sm">
           1. Material
         </Text>
 
-        {cargando ? (
+        {cargando && disponibles.length === 0 ? (
           <Group justify="center" p="lg">
             <Loader />
           </Group>
+        ) : disponibles.length === 0 ? (
+          <Alert color="gray" variant="light">
+            No hay material esperando para esta etapa.
+          </Alert>
         ) : (
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-            {materiales.map((m) => {
-              const cantidad = cantidades[m.id] ?? 0
+          <SimpleGrid cols={{ base: 1, sm: esLavado ? 2 : 1, md: esLavado ? 3 : 2 }} spacing="sm">
+            {disponibles.map((d) => {
+              const delMaterial = lineas.filter((l) => l.material_id === d.material_id)
+              const usado = usadoDe(d.material_id)
+              const quedan = d.cantidad - usado
+              const codigo = codigos[d.material_id]
               return (
-                <Paper key={m.id} withBorder p="sm" radius="md" bg={cantidad > 0 ? fondo : 'white'}>
-                  <Group justify="space-between" wrap="nowrap">
-                    <Text fw={700}>
-                      {m.nombre}
-                      {m.codigo && (
-                        <Text span c="dimmed" fw={400}>
-                          {' '}
-                          ({m.codigo})
-                        </Text>
-                      )}
-                    </Text>
-
-                    <Group gap="xs" wrap="nowrap">
-                      <ActionIcon
-                        size="xl"
-                        fz={22}
-                        variant="default"
-                        disabled={cantidad === 0}
-                        onClick={() => cambiarCantidad(m.id, -1)}
-                        aria-label={`Quitar una unidad de ${m.nombre}`}
-                      >
-                        −
-                      </ActionIcon>
-                      <Text fw={700} size="xl" w={32} ta="center">
-                        {cantidad}
+                <Paper key={d.material_id} withBorder p="sm" radius="md" bg={usado > 0 ? fondo : 'white'}>
+                  <Group justify="space-between" wrap="nowrap" align="flex-start">
+                    <div>
+                      <Text fw={700}>
+                        {d.nombre}
+                        {codigo && (
+                          <Text span c="dimmed" fw={400}>
+                            {' '}
+                            ({codigo})
+                          </Text>
+                        )}
                       </Text>
-                      <ActionIcon
-                        size="xl"
-                        fz={22}
+                      <Text size="sm" c="dimmed">
+                        Esperando: {d.cantidad}
+                      </Text>
+                    </div>
+                    {esLavado && (
+                      <Contador
+                        cantidad={delMaterial[0]?.cantidad ?? 0}
+                        nombre={d.nombre}
                         color={color}
-                        onClick={() => cambiarCantidad(m.id, 1)}
-                        aria-label={`Agregar una unidad de ${m.nombre}`}
-                      >
-                        +
-                      </ActionIcon>
-                    </Group>
+                        puedeSumar={quedan > 0}
+                        onRestar={() => delMaterial[0] && cambiarCantidad(delMaterial[0].clave, -1)}
+                        onSumar={() => sumar(delMaterial[0], d.material_id)}
+                      />
+                    )}
                   </Group>
+
+                  {/* Empaque: una línea por método */}
+                  {!esLavado && (
+                    <Stack gap="xs" mt="sm">
+                      {delMaterial.map((l) => {
+                        const usadosPorOtras = new Set(
+                          delMaterial.filter((o) => o.clave !== l.clave).map((o) => o.metodo_id),
+                        )
+                        return (
+                          <Group key={l.clave} justify="space-between" wrap="nowrap">
+                            <Select
+                              size="md"
+                              placeholder="Elegí el método"
+                              aria-label={`Método de esterilización de ${d.nombre}`}
+                              data={metodos
+                                .filter((m) => !usadosPorOtras.has(m.id))
+                                .map((m) => ({ value: String(m.id), label: m.nombre }))}
+                              value={l.metodo_id === null ? null : String(l.metodo_id)}
+                              onChange={(v) => elegirMetodo(l.clave, v === null ? null : Number(v))}
+                              error={marcarSinMetodo && l.metodo_id === null ? 'Falta el método' : undefined}
+                              style={{ flex: 1 }}
+                            />
+                            <Contador
+                              cantidad={l.cantidad}
+                              nombre={d.nombre}
+                              color={color}
+                              puedeSumar={quedan > 0}
+                              onRestar={() => cambiarCantidad(l.clave, -1)}
+                              onSumar={() => cambiarCantidad(l.clave, 1)}
+                            />
+                          </Group>
+                        )
+                      })}
+                      <Group>
+                        <Button
+                          variant="light"
+                          color={color}
+                          disabled={quedan <= 0 || delMaterial.length >= metodos.length}
+                          onClick={() => agregarLinea(d.material_id)}
+                        >
+                          {delMaterial.length === 0 ? 'Cargar con un método' : 'Agregar otro método'}
+                        </Button>
+                      </Group>
+                    </Stack>
+                  )}
                 </Paper>
               )
             })}
@@ -155,7 +362,7 @@ export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
       </section>
 
       {/* 2. Solo en Lavado: la excepción de solo desinfección, con observación obligatoria */}
-      {esLavado && (
+      {esLavado && disponibles.length > 0 && (
         <section>
           <Text fw={700} size="lg" mb="sm">
             2. Excepción
@@ -185,15 +392,6 @@ export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
         </section>
       )}
 
-      {/* TODO: en Empaque, elegir el método de esterilización por línea antes de empacar
-          (lo pidió la jefa del servicio). Se agrega cuando Lobo ajuste POST /avances. */}
-      {!esLavado && (
-        <Alert color="gray" variant="light">
-          El método de esterilización de cada material se va a elegir en esta pantalla cuando
-          el sistema lo admita.
-        </Alert>
-      )}
-
       {error && (
         <Alert color="red" variant="light">
           {error}
@@ -213,9 +411,11 @@ export default function AvanceEtapa({ etapa }: { etapa: EtapaAvance }) {
         </Alert>
       )}
 
-      <Button size="xl" color={color} loading={enviando} onClick={confirmar}>
-        Pasar a {titulo}
-      </Button>
+      {disponibles.length > 0 && (
+        <Button size="xl" color={color} loading={enviando} onClick={confirmar}>
+          Pasar a {titulo}
+        </Button>
+      )}
     </Stack>
   )
 }

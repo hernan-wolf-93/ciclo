@@ -224,7 +224,15 @@ export type EtapaAvance = 2 | 3
 export interface LineaAvance {
   material_id: number
   cantidad: number
-  // TODO: método por línea en Empaque (metodo_id), cuando Lobo ajuste POST /avances.
+  // Obligatorio en Empaque (cada método lleva otro envoltorio); en Lavado no va.
+  // Un mismo material puede ir en dos líneas con métodos distintos.
+  metodo_id?: number
+}
+
+// Método de esterilización (GET /metodos)
+export interface Metodo {
+  id: number
+  nombre: string
 }
 
 export interface NuevoAvance {
@@ -241,8 +249,9 @@ export interface AvanceRegistrado {
   solo_desinfeccion: boolean
 }
 
-// TODO: forma acordada de GET /avances/pendientes?etapa_orden=N (todavía no existe).
-// Unidades que esperan pasar a esa etapa, por servicio de origen y material.
+// GET /avances/pendientes?etapa_orden=N: unidades que esperan pasar a esa etapa, por
+// servicio de origen y material. La pantalla las suma por material, porque el avance
+// toma los ítems más antiguos del material sin mirar el servicio.
 export interface Pendiente {
   servicio_id: number
   servicio: string
