@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.seguridad import hashear_contrasena
 from app.main import app
-from app.models import Material, MetodoEsterilizacion, Operador, Rol, Servicio
+from app.models import Equipo, Material, MetodoEsterilizacion, Operador, Rol, Servicio
 
 CONTRASENA_PRUEBA = "clave-de-prueba-1"
 # Se calcula una sola vez: Argon2 es lento a propósito.
@@ -175,3 +175,109 @@ def metodos(db_pg):
     return list(
         db_pg.scalars(select(MetodoEsterilizacion).order_by(MetodoEsterilizacion.id).limit(2))
     )
+
+
+@pytest.fixture
+def equipo_de(db_pg):
+    """Función: devuelve un equipo activo del método indicado."""
+
+    def _equipo(metodo):
+        return db_pg.scalar(
+            select(Equipo)
+            .where(Equipo.metodo_id == metodo.id, Equipo.activo.is_(True))
+            .order_by(Equipo.id)
+            .limit(1)
+        )
+
+    return _equipo
+
+
+@pytest.fixture
+def empacar(db_pg, operador):
+    """Función que recibe, lava y empaca unidades con los servicios reales.
+
+    Devuelve los ids de los ítems nuevos. Cada llamada avanza todo lo que recibió,
+    así que no deja ítems de ese material esperando en etapas anteriores.
+    """
+    from app.models import Item
+    from app.schemas.avance import AvanceIn, LineaAvanceIn
+    from app.schemas.recepcion import LineaRecepcionIn, RecepcionIn
+    from app.services.avance import registrar_avance
+    from app.services.recepcion import registrar_recepcion
+
+    def _empacar(servicio, material, metodo, cantidad):
+        antes = set(db_pg.scalars(select(Item.id)))
+        registrar_recepcion(
+            db_pg,
+            operador,
+            RecepcionIn(
+                servicio_id=servicio.id,
+                items=[LineaRecepcionIn(material_id=material.id, cantidad=cantidad)],
+                completo=True,
+            ),
+        )
+        nuevos = sorted(set(db_pg.scalars(select(Item.id))) - antes)
+        registrar_avance(
+            db_pg,
+            operador,
+            AvanceIn(etapa_orden=2, items=[LineaAvanceIn(material_id=material.id, cantidad=cantidad)]),
+        )
+        registrar_avance(
+            db_pg,
+            operador,
+            AvanceIn(
+                etapa_orden=3,
+                items=[
+                    LineaAvanceIn(material_id=material.id, cantidad=cantidad, metodo_id=metodo.id)
+                ],
+            ),
+        )
+        return nuevos
+
+    return _empacar
+
+
+@pytest.fixture
+def cargar_lote(db_pg, operador):
+    """Función que crea un lote directamente en la base, con los ítems indicados.
+
+    resultado: None (en curso), "aprobado" o "fallido". Solo para preparar pruebas:
+    la regla de negocio de crear lotes se prueba en su propia API.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import Etapa, EventoItem, Item, Lote
+    from app.models.catalogos import Programa
+
+    def _cargar(equipo, item_ids, resultado=None, numero=1):
+        programa = db_pg.scalar(
+            select(Programa)
+            .where(Programa.metodo_id == equipo.metodo_id)
+            .order_by(Programa.id)
+            .limit(1)
+        )
+        ahora = datetime.now(timezone.utc)
+        lote = Lote(
+            numero=numero,
+            equipo_id=equipo.id,
+            programa_id=programa.id,
+            operador_id=operador.id,
+            inicio=ahora - timedelta(hours=1),
+            fin=None if resultado is None else ahora,
+            resultado=resultado,
+            observacion="Falla de prueba" if resultado == "fallido" else None,
+        )
+        db_pg.add(lote)
+        db_pg.flush()
+        etapa = db_pg.scalar(select(Etapa).where(Etapa.orden == 4))
+        for item_id in item_ids:
+            db_pg.get(Item, item_id).lote_id = lote.id
+            db_pg.add(
+                EventoItem(
+                    item_id=item_id, etapa_id=etapa.id, lote_id=lote.id, operador_id=operador.id
+                )
+            )
+        db_pg.commit()
+        return lote
+
+    return _cargar
