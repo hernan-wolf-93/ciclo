@@ -38,7 +38,7 @@ def _agregar_lote(db_pg, equipo, programa, operador, numero):
 
 @pytest.mark.parametrize(
     "ruta",
-    ["/servicios", "/materiales", "/equipos", "/programas", "/equipos/1/proximo-numero"],
+    ["/servicios", "/materiales", "/equipos", "/metodos", "/programas", "/equipos/1/proximo-numero"],
 )
 def test_sin_token_responde_401(cliente_pg, ruta):
     assert cliente_pg.get(ruta).status_code == 401
@@ -108,6 +108,16 @@ def test_equipos_activos_con_su_metodo(con_sesion, db_pg):
     ).all()
     assert [(f["id"], f["metodo"]) for f in filas] == [(e.id, e.metodo) for e in esperados]
     assert all(set(f) == {"id", "nombre", "metodo_id", "metodo"} for f in filas)
+    
+    
+def test_metodos_devuelve_todos_con_id_y_nombre(con_sesion, db_pg):
+    respuesta = con_sesion.get("/metodos")
+
+    assert respuesta.status_code == 200
+    esperados = db_pg.scalars(select(MetodoEsterilizacion).order_by(MetodoEsterilizacion.nombre)).all()
+    filas = respuesta.json()
+    assert [(f["id"], f["nombre"]) for f in filas] == [(m.id, m.nombre) for m in esperados]
+    assert all(set(f) == {"id", "nombre"} for f in filas)
 
 
 # --- Programas ------------------------------------------------------------

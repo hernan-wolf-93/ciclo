@@ -44,6 +44,11 @@ class ProximoNumeroOut(BaseModel):
     numero: int
 
 
+class MetodoOut(BaseModel):
+    id: int
+    nombre: str
+
+
 # ---------------------------------------------------------------------------
 # ABM de servicios y materiales (solo administradores)
 # Las validaciones se escriben a mano para que los mensajes salgan en español.

@@ -35,6 +35,15 @@ def _cuerpo(materiales, **cambios):
     return base
 
 
+def _cuerpo_empaque(materiales, metodos, cantidad=2):
+    return {
+        "etapa_orden": 3,
+        "items": [
+            {"material_id": materiales[0].id, "cantidad": cantidad, "metodo_id": metodos[0].id}
+        ],
+    }
+
+
 def _contar(db):
     return db.scalar(select(func.count()).select_from(EventoItem))
 
@@ -80,11 +89,11 @@ def test_avanza_a_lavado_y_responde_201(cliente_pg, db_pg, operador, servicio, m
     assert {e.operador_id for e in eventos} == {operador.id}
 
 
-def test_circuito_lavado_y_luego_empaque(cliente_pg, db_pg, operador, servicio, materiales):
+def test_circuito_lavado_y_luego_empaque(cliente_pg, db_pg, operador, servicio, materiales, metodos):
     _recibir(cliente_pg, operador, servicio, materiales[0], 2)
     headers = _auth(operador)
     assert cliente_pg.post("/avances", json=_cuerpo(materiales), headers=headers).status_code == 201
-    r = cliente_pg.post("/avances", json=_cuerpo(materiales, etapa_orden=3), headers=headers)
+    r = cliente_pg.post("/avances", json=_cuerpo_empaque(materiales, metodos), headers=headers)
     assert r.status_code == 201
     assert r.json()["etapa_orden"] == 3
     assert len(_eventos_de_etapa(db_pg, 3)) == 2
@@ -104,9 +113,8 @@ def test_el_operador_sale_del_token_y_no_del_cuerpo(cliente_pg, db_pg, operador,
         {"etapa_orden": 4},
         {"items": []},
         {"solo_desinfeccion": True},
-        {"etapa_orden": 3, "solo_desinfeccion": True, "observacion": "prueba"},
     ],
-    ids=["etapa inválida", "items vacío", "excepción sin observación", "excepción en empaque"],
+    ids=["etapa inválida", "items vacío", "excepción sin observación"],
 )
 def test_cuerpo_invalido_responde_422_y_no_guarda(cliente_pg, db_pg, operador, servicio, materiales, cambios):
     _recibir(cliente_pg, operador, servicio, materiales[0], 2)
@@ -151,4 +159,58 @@ def test_error_de_flujo_responde_422_con_motivo(cliente_pg, db_pg, operador, ser
     r = cliente_pg.post("/avances", json=_cuerpo(materiales), headers=_auth(operador))
     assert r.status_code == 422
     assert "regla de flujo" in r.json()["detail"]
+    assert _contar(db_pg) == antes
+
+
+def test_excepcion_en_empaque_responde_422(cliente_pg, db_pg, operador, servicio, materiales, metodos):
+    _recibir(cliente_pg, operador, servicio, materiales[0], 2)
+    headers = _auth(operador)
+    assert cliente_pg.post("/avances", json=_cuerpo(materiales), headers=headers).status_code == 201
+    cuerpo = _cuerpo_empaque(materiales, metodos)
+    cuerpo.update(solo_desinfeccion=True, observacion="prueba")
+    antes = _contar(db_pg)
+    r = cliente_pg.post("/avances", json=cuerpo, headers=headers)
+    assert r.status_code == 422
+    assert _contar(db_pg) == antes
+
+
+def test_empaque_sin_metodo_responde_422_y_no_guarda(cliente_pg, db_pg, operador, servicio, materiales):
+    _recibir(cliente_pg, operador, servicio, materiales[0], 2)
+    headers = _auth(operador)
+    assert cliente_pg.post("/avances", json=_cuerpo(materiales), headers=headers).status_code == 201
+    antes = _contar(db_pg)
+    r = cliente_pg.post("/avances", json=_cuerpo(materiales, etapa_orden=3), headers=headers)
+    assert r.status_code == 422
+    assert _contar(db_pg) == antes
+
+
+def test_lavado_con_metodo_responde_422_y_no_guarda(
+    cliente_pg, db_pg, operador, servicio, materiales, metodos
+):
+    _recibir(cliente_pg, operador, servicio, materiales[0], 2)
+    cuerpo = _cuerpo(
+        materiales,
+        items=[{"material_id": materiales[0].id, "cantidad": 2, "metodo_id": metodos[0].id}],
+    )
+    antes = _contar(db_pg)
+    r = cliente_pg.post("/avances", json=cuerpo, headers=_auth(operador))
+    assert r.status_code == 422
+    assert _contar(db_pg) == antes
+
+
+def test_empaque_con_metodo_inexistente_responde_422_con_motivo(
+    cliente_pg, db_pg, operador, servicio, materiales
+):
+    _recibir(cliente_pg, operador, servicio, materiales[0], 2)
+    headers = _auth(operador)
+    assert cliente_pg.post("/avances", json=_cuerpo(materiales), headers=headers).status_code == 201
+    cuerpo = _cuerpo(
+        materiales,
+        etapa_orden=3,
+        items=[{"material_id": materiales[0].id, "cantidad": 2, "metodo_id": 999999}],
+    )
+    antes = _contar(db_pg)
+    r = cliente_pg.post("/avances", json=cuerpo, headers=headers)
+    assert r.status_code == 422
+    assert "método" in r.json()["detail"]
     assert _contar(db_pg) == antes

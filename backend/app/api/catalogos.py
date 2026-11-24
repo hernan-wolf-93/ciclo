@@ -12,6 +12,7 @@ from app.schemas.catalogo import (
     MaterialAltaIn,
     MaterialModificarIn,
     MaterialOut,
+    MetodoOut,
     ProgramaOut,
     ProximoNumeroOut,
     ServicioAdminOut,
@@ -146,6 +147,10 @@ def equipos(db: Annotated[Session, Depends(obtener_db)]):
     """Equipos de esterilización activos, con su método."""
     return catalogo.listar_equipos(db)
 
+@router.get("/metodos", response_model=list[MetodoOut])
+def metodos(db: Annotated[Session, Depends(obtener_db)]):
+    """Métodos de esterilización: calor húmedo, calor seco y óxido de etileno."""
+    return catalogo.listar_metodos(db)
 
 @router.get("/programas", response_model=list[ProgramaOut])
 def programas(

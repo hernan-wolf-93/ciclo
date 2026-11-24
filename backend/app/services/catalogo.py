@@ -60,3 +60,12 @@ def listar_programas(db: Session, equipo_id: int | None = None) -> list[dict]:
             raise EquipoInexistente(f"No existe el equipo {equipo_id}")
         consulta = consulta.where(Programa.metodo_id == equipo.metodo_id)
     return [dict(fila) for fila in db.execute(consulta).mappings()]
+
+
+def listar_metodos(db: Session) -> list[dict]:
+    filas = db.execute(
+        select(MetodoEsterilizacion.id, MetodoEsterilizacion.nombre).order_by(
+            MetodoEsterilizacion.nombre
+        )
+    ).mappings()
+    return [dict(fila) for fila in filas]
