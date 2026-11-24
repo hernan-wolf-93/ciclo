@@ -4,8 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import obtener_db, obtener_operador_actual
+from app.models import Operador
 from app.schemas.avance import PendienteOut
-from app.services.esterilizacion import listar_pendientes_equipo
+from app.schemas.esterilizacion import LoteCreadoOut, LoteIn
+from app.services.esterilizacion import ErrorDeLote, listar_pendientes_equipo, registrar_lote
+from app.services.flujo import ErrorDeFlujo
 from app.services.numeracion_lote import EquipoInexistente
 
 router = APIRouter(tags=["esterilizacion"], dependencies=[Depends(obtener_operador_actual)])
@@ -18,3 +21,26 @@ def pendientes_del_equipo(equipo_id: int, db: Annotated[Session, Depends(obtener
         return listar_pendientes_equipo(db, equipo_id)
     except EquipoInexistente as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
+@router.post("/lotes", response_model=LoteCreadoOut, status_code=status.HTTP_201_CREATED)
+def crear_lote(
+    datos: LoteIn,
+    operador: Annotated[Operador, Depends(obtener_operador_actual)],
+    db: Annotated[Session, Depends(obtener_db)],
+):
+    """Carga un equipo: crea el lote y pasa sus ítems a Esterilización. El operador sale del token."""
+    try:
+        lote, total = registrar_lote(db, operador, datos)
+    except EquipoInexistente as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except (ErrorDeLote, ErrorDeFlujo) as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    return LoteCreadoOut(
+        id=lote.id,
+        numero=lote.numero,
+        equipo_id=lote.equipo_id,
+        programa_id=lote.programa_id,
+        inicio=lote.inicio,
+        total_items=total,
+    )
