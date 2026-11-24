@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.seguridad import hashear_contrasena
 from app.main import app
-from app.models import Material, Operador, Rol, Servicio
+from app.models import Material, MetodoEsterilizacion, Operador, Rol, Servicio
 
 CONTRASENA_PRUEBA = "clave-de-prueba-1"
 # Se calcula una sola vez: Argon2 es lento a propósito.
@@ -167,3 +167,11 @@ def con_sesion(cliente_pg, operador):
     cliente_pg limpia los reemplazos al terminar."""
     app.dependency_overrides[obtener_operador_actual] = lambda: operador
     return cliente_pg
+
+
+@pytest.fixture
+def metodos(db_pg):
+    """Dos métodos de esterilización, por id (vienen de la migración 0002)."""
+    return list(
+        db_pg.scalars(select(MetodoEsterilizacion).order_by(MetodoEsterilizacion.id).limit(2))
+    )
