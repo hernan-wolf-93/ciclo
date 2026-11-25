@@ -23,7 +23,7 @@ from app.models import (
     Servicio,
 )
 from app.models.catalogos import Programa
-from app.schemas.esterilizacion import LoteIn
+from app.schemas.esterilizacion import CierreLoteIn, LoteIn
 from app.services.avance import ultimo_evento_por_item
 from app.services.bowie_dick import METODO_CON_BOWIE_DICK, hay_bowie_dick_aprobado_hoy
 from app.services.compatibilidad import validar_servicios_compatibles
@@ -105,6 +105,13 @@ def listar_pendientes_equipo(db: Session, equipo_id: int) -> list[dict]:
 
 class ErrorDeLote(Exception):
     """El lote no se puede crear. El router lo responde como 422."""
+    
+class LoteInexistente(Exception):
+    """El lote no existe. El router lo responde como 404."""
+
+
+class LoteYaCerrado(Exception):
+    """El lote ya tiene resultado. El router lo responde como 409."""
 
 
 def _elegir(db: Session, equipo: Equipo, datos: LoteIn) -> list[int]:
@@ -192,3 +199,35 @@ def registrar_lote(
 
     db.refresh(lote)
     return lote, len(item_ids)
+
+
+def cerrar_lote(
+    db: Session, lote_id: int, datos: CierreLoteIn, ahora: datetime | None = None
+) -> Lote:
+    """Cierra la carga de un equipo: guarda el resultado, el N.º de ciclo y el fin.
+
+    No mueve los ítems de etapa: el paso a Almacén es un avance aparte. La fila del
+    lote se bloquea, así que dos cierres simultáneos no se pisan: el segundo ve el
+    lote cerrado. Lanza LoteInexistente o LoteYaCerrado.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+
+    lote = db.scalar(select(Lote).where(Lote.id == lote_id).with_for_update())
+    if lote is None:
+        raise LoteInexistente(f"No existe el lote {lote_id}")
+    if lote.fin is not None or lote.resultado is not None:
+        db.rollback()  # suelta el bloqueo de la fila
+        raise LoteYaCerrado(f"El lote {lote.numero} ya está cerrado")
+
+    try:
+        lote.fin = ahora
+        lote.resultado = datos.resultado
+        lote.observacion = datos.observacion
+        lote.numero_ciclo = str(datos.numero_ciclo)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(lote)
+    return lote
