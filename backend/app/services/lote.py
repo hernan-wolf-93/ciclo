@@ -58,11 +58,18 @@ def _dias_aireacion_por_lote(db: Session, lote_ids: list[int]) -> dict[int, int]
     return {lote_id: dias for lote_id, dias in filas}
 
 
-def listar_lotes(db: Session, numero: int | None = None) -> list[LoteResumenOut]:
-    """Lotes del más nuevo al más viejo. Con numero puede haber varios: se repite."""
+def listar_lotes(
+    db: Session, numero: int | None = None, en_curso: bool = False
+) -> list[LoteResumenOut]:
+    """Lotes del más nuevo al más viejo. Con numero puede haber varios: se repite.
+
+    Con en_curso solo salen los lotes que todavía no se cerraron (fin sin definir).
+    """
     consulta = select(Lote).order_by(Lote.inicio.desc(), Lote.id.desc())
     if numero is not None:
         consulta = consulta.where(Lote.numero == numero)
+    if en_curso:
+        consulta = consulta.where(Lote.fin.is_(None))
     lotes = list(db.scalars(consulta))
     if not lotes:
         return []
