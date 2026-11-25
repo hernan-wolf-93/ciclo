@@ -81,6 +81,18 @@ class Lote(Base):
             "(observacion IS NOT NULL AND length(btrim(observacion)) > 0)",
             name="ck_lote_fallido_requiere_motivo",
         ),
+        CheckConstraint(
+            "(falla_posterior_en IS NULL) = (falla_posterior_por IS NULL)",
+            name="ck_lote_falla_posterior_completa",
+        ),
+        CheckConstraint(
+            "falla_posterior_en IS NULL OR resultado IS NOT DISTINCT FROM 'fallido'",
+            name="ck_lote_falla_posterior_es_fallido",
+        ),
+        CheckConstraint(
+            "falla_posterior_en IS NULL OR (fin IS NOT NULL AND falla_posterior_en >= fin)",
+            name="ck_lote_falla_posterior_despues_del_cierre",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -95,6 +107,12 @@ class Lote(Base):
     resultado: Mapped[str | None] = mapped_column(String(10))
     observacion: Mapped[str | None] = mapped_column(Text)
     numero_ciclo: Mapped[str | None] = mapped_column(String(20))  # contador del equipo (ticket)
+    # Falla detectada después del cierre (indicador biológico o externo): cuándo y quién
+    # la marcó. Un lote que falló en el cierre las deja en NULL.
+    falla_posterior_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    falla_posterior_por: Mapped[int | None] = mapped_column(
+        ForeignKey("operador.id", name="lote_falla_posterior_por_fkey")
+    )
 
     items: Mapped[list["Item"]] = relationship(back_populates="lote")
 
