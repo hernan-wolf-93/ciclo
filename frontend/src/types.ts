@@ -418,3 +418,50 @@ export interface Aviso {
   gravedad: 'alta' | 'media' | null
   motivo: string // texto listo para mostrar
 }
+
+// ---------------------------------------------------------------------------
+// Entrega por ventanilla (RF5). ! Contrato BORRADOR de Lobo: puede cambiar.
+// * Una entrega es de UN solo servicio. Un lote puede mezclar servicios: por eso cada
+// * fila trae su lote y se filtra por servicio. El operador sale del token.
+// ---------------------------------------------------------------------------
+
+// GET /entregas/disponibles: unidades en Almacén, de lotes aprobados y sin entregar,
+// por lote y material. Vienen ordenadas: urgentes primero y después las más antiguas.
+export interface EntregaDisponible {
+  lote_id: number
+  lote_numero: number // se repite entre equipos: el lote_id es el que distingue
+  equipo: string
+  servicio_id: number // servicio de origen
+  servicio: string
+  urgente: boolean
+  material_id: number
+  material: string
+  codigo: string | null // código del material (ej.: G10, PM)
+  cantidad_entregable: number
+}
+
+// Una línea de la entrega. Si la cantidad es menor que la entregable, es una entrega
+// parcial: el resto sigue disponible (no se crea un lote nuevo).
+// * El par lote + material no se repite en dos líneas (la API responde 422).
+export interface LineaEntrega {
+  lote_id: number
+  material_id: number
+  cantidad: number
+}
+
+// Lo que la pantalla manda en POST /entregas
+export interface NuevaEntrega {
+  servicio_id: number
+  retira?: string // quién retira, texto libre (opcional)
+  observacion?: string
+  lineas: LineaEntrega[]
+}
+
+// Lo que devuelve POST /entregas (201)
+export interface EntregaCreada {
+  id: number
+  servicio_id: number
+  fecha_hora: string
+  observacion: string | null
+  total_items: number // unidades entregadas
+}
