@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LineaLoteIn(BaseModel):
@@ -59,3 +59,25 @@ class LoteCerradoOut(BaseModel):
     fin: datetime
     numero_ciclo: str
     observacion: str | None
+    
+    
+class FallaPosteriorIn(BaseModel):
+    # Tope provisorio contra textos absurdos.
+    motivo: str = Field(max_length=1000)
+
+    @field_validator("motivo")
+    @classmethod
+    def motivo_no_vacio(cls, valor: str) -> str:
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("El motivo no puede estar vacío")
+        return valor
+
+
+class FallaPosteriorOut(BaseModel):
+    id: int
+    numero: int
+    resultado: Literal["aprobado", "fallido"]
+    observacion: str | None
+    falla_posterior_en: datetime
+    marcado_por: str  # N.º de operador de quien la marcó
