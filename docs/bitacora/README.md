@@ -30,6 +30,11 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | POST /lotes/{id}/falla-posterior: marca como fallido un lote aprobado con falla detectada después del cierre (569 pruebas). | #47 |
+| 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | Migración 0011: auditoría de la falla posterior en lote (quién y cuándo) con tres restricciones CHECK (552 pruebas). | #46 |
+| 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | Reglas de flujo: un ítem en Almacén de un lote fallido vuelve a Esterilización y no pasa a Entrega (546 pruebas). | #45 |
+| 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | POST /lotes/{id}/cierre: cierra la carga de un equipo con N.º de ciclo, resultado y motivo si falla (533 pruebas). | #44 |
+| 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | Filtro en_curso en GET /lotes: solo los lotes que todavía no se cerraron (513 pruebas). | #43 |
 | 21/11/2026 | Mara | Pantalla de recuperación de contraseña | Pantalla pública "Olvidé mi contraseña" (/recuperar) y botón "Generar código" en Usuarios, con la API de recuperación de Lobo. El código se muestra una sola vez y no se guarda. (PR #N29). |
 | 21/11/2026 | Mara | Recepción: material por servicio (catálogo oficial) | Recepción muestra solo los materiales del servicio elegido, en dos grupos (autoclave y estufa / óxido de etileno), y no muestra lo que solo se entrega. Cantidades en cero al cambiar de servicio. Datos de prueba. (PR #N28). |
 | 20/11/2026 | Lobo | Recuperación de contraseña (simulada) | Mecanismo de código de un solo uso: un administrador genera el código y el operador lo usa para elegir una clave nueva. Migración 0009 (tabla recuperacion_contrasena), POST /operadores/{id}/codigo-recuperacion y POST /auth/recuperar-contrasena. (PR #27). |
