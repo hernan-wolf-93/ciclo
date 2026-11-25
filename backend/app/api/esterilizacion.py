@@ -6,8 +6,15 @@ from sqlalchemy.orm import Session
 from app.api.deps import obtener_db, obtener_operador_actual
 from app.models import Operador
 from app.schemas.avance import PendienteOut
-from app.schemas.esterilizacion import LoteCreadoOut, LoteIn
-from app.services.esterilizacion import ErrorDeLote, listar_pendientes_equipo, registrar_lote
+from app.schemas.esterilizacion import CierreLoteIn, LoteCerradoOut, LoteCreadoOut, LoteIn
+from app.services.esterilizacion import (
+    ErrorDeLote,
+    LoteInexistente,
+    LoteYaCerrado,
+    cerrar_lote,
+    listar_pendientes_equipo,
+    registrar_lote,
+)
 from app.services.flujo import ErrorDeFlujo
 from app.services.numeracion_lote import EquipoInexistente
 
@@ -43,4 +50,27 @@ def crear_lote(
         programa_id=lote.programa_id,
         inicio=lote.inicio,
         total_items=total,
+    )
+    
+    
+@router.post("/lotes/{lote_id}/cierre", response_model=LoteCerradoOut)
+def cerrar(
+    lote_id: int,
+    datos: CierreLoteIn,
+    db: Annotated[Session, Depends(obtener_db)],
+):
+    """Cierra la carga de un equipo con el resultado del ciclo. El fin lo pone el servidor."""
+    try:
+        lote = cerrar_lote(db, lote_id, datos)
+    except LoteInexistente as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except LoteYaCerrado as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    return LoteCerradoOut(
+        id=lote.id,
+        numero=lote.numero,
+        resultado=lote.resultado,
+        fin=lote.fin,
+        numero_ciclo=lote.numero_ciclo,
+        observacion=lote.observacion,
     )
