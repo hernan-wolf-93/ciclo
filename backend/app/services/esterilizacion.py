@@ -2,7 +2,7 @@
 
 Un equipo carga material de su método: ítems cuyo último evento es Empaque y que
 tienen asignado ese método, más los ítems de un lote fallido de ese método que
-esperan reesterilizarse. La misma consulta alimenta la lista de pendientes y la
+esperan reesterilizarse (en Esterilizacion o Almacen). La misma consulta alimenta la lista de pendientes y la
 elección de ítems al crear el lote, para que lo que se ve sea lo que se puede cargar.
 """
 
@@ -27,7 +27,12 @@ from app.schemas.esterilizacion import CierreLoteIn, LoteIn
 from app.services.avance import ultimo_evento_por_item
 from app.services.bowie_dick import METODO_CON_BOWIE_DICK, hay_bowie_dick_aprobado_hoy
 from app.services.compatibilidad import validar_servicios_compatibles
-from app.services.flujo import ORDEN_ESTERILIZACION, RESULTADO_FALLIDO, validar_avance_varios
+from app.services.flujo import (
+    ORDEN_ALMACEN,
+    ORDEN_ESTERILIZACION,
+    RESULTADO_FALLIDO,
+    validar_avance_varios,
+)
 from app.services.numeracion_lote import EquipoInexistente
 
 ORDEN_EMPAQUE = 3
@@ -52,7 +57,10 @@ def _disponibles(equipo: Equipo):
         .where(
             or_(
                 Etapa.orden == ORDEN_EMPAQUE,
-                and_(Etapa.orden == ORDEN_ESTERILIZACION, Lote.resultado == RESULTADO_FALLIDO),
+                and_(
+                    Etapa.orden.in_([ORDEN_ESTERILIZACION, ORDEN_ALMACEN]),
+                    Lote.resultado == RESULTADO_FALLIDO,
+                ),
             )
         )
     )
