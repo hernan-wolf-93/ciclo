@@ -6,13 +6,22 @@ from sqlalchemy.orm import Session
 from app.api.deps import obtener_db, obtener_operador_actual
 from app.models import Operador
 from app.schemas.avance import PendienteOut
-from app.schemas.esterilizacion import CierreLoteIn, LoteCerradoOut, LoteCreadoOut, LoteIn
+from app.schemas.esterilizacion import (
+    CierreLoteIn,
+    FallaPosteriorIn,
+    FallaPosteriorOut,
+    LoteCerradoOut,
+    LoteCreadoOut,
+    LoteIn,
+)
 from app.services.esterilizacion import (
     ErrorDeLote,
+    FallaPosteriorNoPermitida,
     LoteInexistente,
     LoteYaCerrado,
     cerrar_lote,
     listar_pendientes_equipo,
+    marcar_falla_posterior,
     registrar_lote,
 )
 from app.services.flujo import ErrorDeFlujo
@@ -73,4 +82,28 @@ def cerrar(
         fin=lote.fin,
         numero_ciclo=lote.numero_ciclo,
         observacion=lote.observacion,
+    )
+    
+    
+@router.post("/lotes/{lote_id}/falla-posterior", response_model=FallaPosteriorOut)
+def registrar_falla_posterior(
+    lote_id: int,
+    datos: FallaPosteriorIn,
+    operador: Annotated[Operador, Depends(obtener_operador_actual)],
+    db: Annotated[Session, Depends(obtener_db)],
+):
+    """Marca como fallido un lote aprobado cuya falla se detectó después del cierre."""
+    try:
+        lote = marcar_falla_posterior(db, operador, lote_id, datos)
+    except LoteInexistente as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except FallaPosteriorNoPermitida as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    return FallaPosteriorOut(
+        id=lote.id,
+        numero=lote.numero,
+        resultado=lote.resultado,
+        observacion=lote.observacion,
+        falla_posterior_en=lote.falla_posterior_en,
+        marcado_por=operador.numero_operador,
     )

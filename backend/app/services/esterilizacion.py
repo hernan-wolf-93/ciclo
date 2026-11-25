@@ -23,7 +23,7 @@ from app.models import (
     Servicio,
 )
 from app.models.catalogos import Programa
-from app.schemas.esterilizacion import CierreLoteIn, LoteIn
+from app.schemas.esterilizacion import CierreLoteIn, FallaPosteriorIn, LoteIn
 from app.services.avance import ultimo_evento_por_item
 from app.services.bowie_dick import METODO_CON_BOWIE_DICK, hay_bowie_dick_aprobado_hoy
 from app.services.compatibilidad import validar_servicios_compatibles
@@ -117,10 +117,11 @@ class ErrorDeLote(Exception):
 class LoteInexistente(Exception):
     """El lote no existe. El router lo responde como 404."""
 
-
 class LoteYaCerrado(Exception):
     """El lote ya tiene resultado. El router lo responde como 409."""
 
+class FallaPosteriorNoPermitida(Exception):
+    """El lote no admite una falla posterior. El router lo responde como 409."""
 
 def _elegir(db: Session, equipo: Equipo, datos: LoteIn) -> list[int]:
     """Ids de los ítems que entran al lote: los más antiguos de cada línea.
@@ -232,6 +233,67 @@ def cerrar_lote(
         lote.resultado = datos.resultado
         lote.observacion = datos.observacion
         lote.numero_ciclo = str(datos.numero_ciclo)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(lote)
+    return lote
+
+
+def _impedimento_de_falla_posterior(db: Session, lote: Lote) -> str | None:
+    """Motivo por el que el lote no admite una falla posterior, o None si la admite."""
+    if lote.fin is None or lote.resultado is None:
+        return "El lote sigue en curso: hay que cerrarlo antes de marcar una falla posterior"
+    if lote.resultado == RESULTADO_FALLIDO:
+        return "El lote ya está fallido"
+    # Solo cuentan los ítems que pasaron por este lote: un ítem entregado de otro lote no bloquea.
+    entregados = db.scalar(
+        select(func.count(Item.id)).where(
+            Item.id.in_(select(EventoItem.item_id).where(EventoItem.lote_id == lote.id)),
+            Item.entrega_id.is_not(None),
+        )
+    )
+    if entregados:
+        return f"No se puede marcar la falla: {entregados} ítem(s) de este lote ya se entregaron"
+    return None
+
+
+def marcar_falla_posterior(
+    db: Session,
+    operador: Operador,
+    lote_id: int,
+    datos: FallaPosteriorIn,
+    ahora: datetime | None = None,
+) -> Lote:
+    """Marca como fallido un lote aprobado cuya falla se detectó después del cierre.
+
+    Agrega el motivo a la observación y guarda quién y cuándo. No mueve los ítems: los
+    de Esterilización o Almacén quedan disponibles para reesterilizar. La fila del lote
+    se bloquea, así que dos marcas simultáneas no se pisan. Lanza LoteInexistente o
+    FallaPosteriorNoPermitida.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+
+    lote = db.scalar(select(Lote).where(Lote.id == lote_id).with_for_update())
+    if lote is None:
+        raise LoteInexistente(f"No existe el lote {lote_id}")
+
+    impedimento = _impedimento_de_falla_posterior(db, lote)
+    if impedimento:
+        db.rollback()  # suelta el bloqueo de la fila
+        raise FallaPosteriorNoPermitida(impedimento)
+
+    observacion = f"Falla posterior: {datos.motivo}"
+    if lote.observacion and lote.observacion.strip():
+        observacion = f"{lote.observacion}\n{observacion}"
+
+    try:
+        lote.resultado = RESULTADO_FALLIDO
+        lote.observacion = observacion
+        lote.falla_posterior_en = ahora
+        lote.falla_posterior_por = operador.id
         db.commit()
     except Exception:
         db.rollback()
