@@ -1,146 +1,95 @@
-import { MATERIALES_OFICIALES, SERVICIOS_OFICIALES } from '../mocks/catalogoOficial'
-import { PENDIENTES_ESTERILIZACION } from '../mocks/esterilizacion'
-import { EQUIPOS, LOTES, PROGRAMAS } from '../mocks/lotes'
+import axios from 'axios'
+import { api } from './api'
 import type {
+  BowieDickHoy,
+  BowieDickRegistrado,
   CierreLote,
-  Equipo,
-  LoteAbierto,
+  EquipoDeCarga,
+  LoteCerrado,
   LoteCreado,
+  LoteResumen,
+  NuevoBowieDick,
   NuevoLote,
   PendienteCarga,
   Programa,
 } from '../types'
 
-// * Por ahora todo devuelve datos de prueba. Cuando Lobo tenga la API,
-// * cambiamos solo el interior de estas funciones y la pantalla no se toca.
+// * Pantalla de Esterilización: backend/app/api/esterilizacion.py, bowie_dick.py,
+// * catalogos.py y lotes.py. El operador que firma sale del token (no va en el cuerpo).
 
-// Simula la demora de una API de verdad
-const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-// Copia de los pendientes: al crear un lote se descuenta de acá
-const pendientes = PENDIENTES_ESTERILIZACION.map((p) => ({ ...p }))
-
-// Lotes en curso: los de prueba con resultado null más los que se crean acá
-const abiertos: LoteAbierto[] = LOTES.filter((l) => l.resultado === null).map((l) => ({
-  id: l.id,
-  numero: l.numero,
-  inicio: l.inicio,
-  equipo: l.equipo,
-  programa: l.programa,
-}))
-
-// Lotes creados en esta sesión (aunque ya estén cerrados): sirven para proponer el número
-const creados: { equipo_id: number; numero: number; inicio: string }[] = []
-let ultimoId = Math.max(...LOTES.map((l) => l.id))
-
-function buscarEquipo(id: number): Equipo {
-  const equipo = EQUIPOS.find((e) => e.id === id)
-  if (!equipo) throw new Error(`No existe el equipo ${id}`)
-  return equipo
+// GET /equipos: equipos activos, con el nombre de su método
+export async function obtenerEquipos(): Promise<EquipoDeCarga[]> {
+  const { data } = await api.get<EquipoDeCarga[]>('/equipos')
+  return data
 }
 
-export async function obtenerEquipos(): Promise<Equipo[]> {
-  // TODO: GET /equipos  (solo los activos)
-  await esperar(200)
-  return EQUIPOS
-}
-
-// Programas del método del equipo (cada uno con sus parámetros)
+// GET /programas?equipo_id=: programas del método del equipo, con sus parámetros
 export async function obtenerProgramas(equipoId: number): Promise<Programa[]> {
-  // TODO: GET /programas?equipo_id={equipoId}
-  await esperar(200)
-  const equipo = buscarEquipo(equipoId)
-  return PROGRAMAS.filter((p) => p.metodo_id === equipo.metodo_id)
+  const { data } = await api.get<Programa[]>('/programas', { params: { equipo_id: equipoId } })
+  return data
 }
 
-// Lo que espera entrar a ese equipo: solo lo del método del equipo
+// GET /equipos/{id}/pendientes: lo que puede entrar a ese equipo (ya filtrado por su método)
 export async function obtenerPendientes(equipoId: number): Promise<PendienteCarga[]> {
-  // TODO: GET /avances/pendientes?etapa_orden=4&equipo_id={equipoId}
-  await esperar(300)
-  const equipo = buscarEquipo(equipoId)
-
-  return pendientes
-    .filter((p) => p.metodo_id === equipo.metodo_id && p.cantidad > 0)
-    .map((p) => ({
-      servicio: SERVICIOS_OFICIALES.find((s) => s.id === p.servicio_id)!,
-      material: MATERIALES_OFICIALES.find((m) => m.id === p.material_id)!,
-      cantidad: p.cantidad,
-    }))
+  const { data } = await api.get<PendienteCarga[]>(`/equipos/${equipoId}/pendientes`)
+  return data
 }
 
-// El número va de 1 a 999, es por equipo y se reinicia: último usado + 1
+// GET /equipos/{id}/proximo-numero: es una propuesta, no una reserva (1 a 999, se repite)
 export async function obtenerProximoNumero(equipoId: number): Promise<number> {
-  // TODO: GET /equipos/{equipoId}/proximo-numero
-  await esperar(200)
-
-  const usados = [
-    ...LOTES.map((l) => ({ equipo_id: l.equipo_id, numero: l.numero, inicio: l.inicio })),
-    ...creados,
-  ].filter((l) => l.equipo_id === equipoId)
-
-  // Sin lotes en ese equipo, arranca en 1
-  if (usados.length === 0) return 1
-
-  // El último es el más nuevo (no el número más alto, porque se reinicia)
-  const ultimo = usados.reduce((a, b) => (b.inicio > a.inicio ? b : a))
-  return ultimo.numero >= 999 ? 1 : ultimo.numero + 1
+  const { data } = await api.get<{ equipo_id: number; numero: number }>(
+    `/equipos/${equipoId}/proximo-numero`,
+  )
+  return data.numero
 }
 
+// POST /lotes: crea el lote y pasa sus ítems a Esterilización.
+// Errores: 404 equipo inexistente; 422 programa de otro método, Bowie-Dick faltante,
+// material insuficiente o servicios incompatibles (usar mensajeDeError).
 export async function crearLote(datos: NuevoLote): Promise<LoteCreado> {
-  // TODO: POST /lotes  (responde 201 con el lote creado)
-  await esperar(500)
+  const { data } = await api.post<LoteCreado>('/lotes', datos)
+  return data
+}
 
-  const equipo = buscarEquipo(datos.equipo_id)
-  const programa = PROGRAMAS.find((p) => p.id === datos.programa_id && p.metodo_id === equipo.metodo_id)
-  if (!programa) throw new Error('El programa no corresponde al método del equipo.')
+// GET /lotes?en_curso=true: lotes sin cerrar, del más nuevo al más viejo
+export async function obtenerLotesEnCurso(): Promise<LoteResumen[]> {
+  const { data } = await api.get<LoteResumen[]>('/lotes', { params: { en_curso: true } })
+  return data
+}
 
-  if (!Number.isInteger(datos.numero) || datos.numero < 1 || datos.numero > 999) {
-    throw new Error('El número de lote tiene que ser de 1 a 999.')
-  }
-  if (datos.lineas.length === 0) throw new Error('Cargá al menos un paquete.')
+// POST /lotes/{id}/cierre: 404 no existe, 409 ya cerrado, 422 cuerpo inválido
+export async function cerrarLote(id: number, datos: CierreLote): Promise<LoteCerrado> {
+  const { data } = await api.post<LoteCerrado>(`/lotes/${id}/cierre`, datos)
+  return data
+}
 
-  // Primero revisamos todas las líneas y después descontamos, así no queda a medias
-  const aDescontar = datos.lineas.map((linea) => {
-    const pendiente = pendientes.find(
-      (p) =>
-        p.metodo_id === equipo.metodo_id &&
-        p.servicio_id === linea.servicio_id &&
-        p.material_id === linea.material_id,
-    )
-    const disponible = pendiente?.cantidad ?? 0
-    if (linea.cantidad < 1 || linea.cantidad > disponible) {
-      const material = MATERIALES_OFICIALES.find((m) => m.id === linea.material_id)?.nombre ?? 'ese material'
-      throw new Error(`Solo hay ${disponible} de ${material} esperando para este equipo.`)
+// GET /equipos/{id}/bowie-dick/hoy: si el último control de hoy del equipo está aprobado
+export async function obtenerBowieDickHoy(equipoId: number): Promise<BowieDickHoy> {
+  const { data } = await api.get<BowieDickHoy>(`/equipos/${equipoId}/bowie-dick/hoy`)
+  return data
+}
+
+// POST /equipos/{id}/bowie-dick: solo en el autoclave (si no, 422). 404 equipo inexistente.
+export async function registrarBowieDick(
+  equipoId: number,
+  datos: NuevoBowieDick,
+): Promise<BowieDickRegistrado> {
+  const { data } = await api.post<BowieDickRegistrado>(`/equipos/${equipoId}/bowie-dick`, datos)
+  return data
+}
+
+// Convierte el error del back en un texto para mostrar en pantalla.
+// Las reglas (404, 409 y 422 de negocio) llegan como texto; las validaciones del
+// esquema (422), como lista de pydantic: se muestra el primer mensaje sin su prefijo.
+export function mensajeDeError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) return 'No se pudo conectar con el servidor.'
+    const detalle = error.response.data?.detail
+    if (typeof detalle === 'string') return detalle
+    if (Array.isArray(detalle) && typeof detalle[0]?.msg === 'string') {
+      return detalle[0].msg.replace(/^Value error, /, '')
     }
-    return { pendiente: pendiente!, cantidad: linea.cantidad }
-  })
-  for (const { pendiente, cantidad } of aDescontar) pendiente.cantidad -= cantidad
-
-  ultimoId++
-  const inicio = new Date().toISOString()
-  creados.push({ equipo_id: equipo.id, numero: datos.numero, inicio })
-  abiertos.push({ id: ultimoId, numero: datos.numero, inicio, equipo, programa })
-
-  return { id: ultimoId, numero: datos.numero, equipo_id: equipo.id, inicio }
-}
-
-// Lotes con resultado null. Vienen del más viejo al más nuevo.
-export async function obtenerLotesEnCurso(): Promise<LoteAbierto[]> {
-  // TODO: GET /lotes y filtrar los que tienen resultado en null
-  await esperar(200)
-  return [...abiertos].sort((a, b) => a.inicio.localeCompare(b.inicio))
-}
-
-export async function cerrarLote(id: number, datos: CierreLote): Promise<void> {
-  // TODO: POST /lotes/{id}/cierre  ({ numero_ciclo (opcional), resultado, observacion })
-  await esperar(400)
-
-  const indice = abiertos.findIndex((l) => l.id === id)
-  if (indice === -1) throw new Error(`No existe el lote ${id} o ya está cerrado`)
-
-  if (datos.resultado === 'fallido' && !datos.observacion?.trim()) {
-    throw new Error('La observación es obligatoria si el lote falla.')
+    if (error.response.status === 403) return 'No tenés permiso para hacer esto.'
   }
-
-  abiertos.splice(indice, 1)
+  return 'Ocurrió un error inesperado.'
 }
