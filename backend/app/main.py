@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth, avances, avisos, catalogos, lotes, operadores, recepciones, roles, tablero
+from app.api import auth, avances, avisos, bowie_dick, catalogos, esterilizacion, lotes, operadores, recepciones, roles, tablero
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,9 +18,10 @@ app.include_router(recepciones.router)
 app.include_router(avances.router)
 app.include_router(lotes.router)
 app.include_router(catalogos.router)
+app.include_router(esterilizacion.router)
 app.include_router(tablero.router)
 app.include_router(avisos.router)
-
+app.include_router(bowie_dick.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origenes_cors,

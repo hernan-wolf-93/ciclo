@@ -25,6 +25,9 @@ def tablero(
         list[int] | None,
         Query(description="Recepciones con ítems que pasaron por alguno de estos lotes (se repite el parámetro)."),
     ] = None,
+    externo: Annotated[
+        bool | None, Query(description="true: solo centros externos; false: solo servicios del hospital.")
+    ] = None,
 ):
     """Material en curso por recepción: urgentes primero y, dentro de cada grupo, la más antigua primero."""
-    return listar_tablero(db, urgente, servicio_id, material_id, lote_id)
+    return listar_tablero(db, urgente, servicio_id, material_id, lote_id, externo)

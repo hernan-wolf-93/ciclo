@@ -4,19 +4,21 @@ de número de lote. Corren contra ciclo_test: los catálogos vienen de las migra
 import pytest
 from sqlalchemy import select
 
-from app.api.deps import obtener_operador_actual
-from app.main import app
 from app.models import Lote
 from app.models.catalogos import Equipo, Material, MetodoEsterilizacion, Programa, Servicio
 
-
-@pytest.fixture
-def con_sesion(cliente_pg, operador):
-    """Cliente con sesión iniciada. Reemplaza solo la identificación del operador;
-    cliente_pg limpia los reemplazos al terminar."""
-    app.dependency_overrides[obtener_operador_actual] = lambda: operador
-    return cliente_pg
-
+CLAVES_PROGRAMA = {
+    "id",
+    "nombre",
+    "metodo_id",
+    "temperatura_c",
+    "tiempo_esterilizacion_min",
+    "tiempo_secado_min",
+    "tiempo_desgasificacion_min",
+    "vacio_bar",
+    "vapor_bar",
+    "pulsos",
+}
 
 def _equipo_con_programa(db_pg, nombre="Equipo de prueba"):
     metodo = db_pg.scalars(select(MetodoEsterilizacion).order_by(MetodoEsterilizacion.id)).first()
@@ -36,7 +38,7 @@ def _agregar_lote(db_pg, equipo, programa, operador, numero):
 
 @pytest.mark.parametrize(
     "ruta",
-    ["/servicios", "/materiales", "/equipos", "/programas", "/equipos/1/proximo-numero"],
+    ["/servicios", "/materiales", "/equipos", "/metodos", "/programas", "/equipos/1/proximo-numero"],
 )
 def test_sin_token_responde_401(cliente_pg, ruta):
     assert cliente_pg.get(ruta).status_code == 401
@@ -106,6 +108,16 @@ def test_equipos_activos_con_su_metodo(con_sesion, db_pg):
     ).all()
     assert [(f["id"], f["metodo"]) for f in filas] == [(e.id, e.metodo) for e in esperados]
     assert all(set(f) == {"id", "nombre", "metodo_id", "metodo"} for f in filas)
+    
+    
+def test_metodos_devuelve_todos_con_id_y_nombre(con_sesion, db_pg):
+    respuesta = con_sesion.get("/metodos")
+
+    assert respuesta.status_code == 200
+    esperados = db_pg.scalars(select(MetodoEsterilizacion).order_by(MetodoEsterilizacion.nombre)).all()
+    filas = respuesta.json()
+    assert [(f["id"], f["nombre"]) for f in filas] == [(m.id, m.nombre) for m in esperados]
+    assert all(set(f) == {"id", "nombre"} for f in filas)
 
 
 # --- Programas ------------------------------------------------------------
@@ -131,7 +143,7 @@ def test_programas_de_un_equipo_son_solo_los_de_su_metodo(con_sesion, db_pg):
     nombres = {f["nombre"] for f in filas}
     assert "Programa de prueba del mismo método" in nombres
     assert "Programa de prueba de otro método" not in nombres
-    assert all(set(f) == {"id", "nombre", "metodo_id"} for f in filas)
+    assert all(set(f) == CLAVES_PROGRAMA for f in filas)
 
 
 def test_programas_sin_filtro_devuelve_los_de_todos_los_metodos(con_sesion, db_pg):
@@ -150,6 +162,30 @@ def test_programas_de_un_equipo_inexistente_responde_404(con_sesion):
 
 def test_programas_con_equipo_id_invalido_responde_422(con_sesion):
     assert con_sesion.get("/programas", params={"equipo_id": 0}).status_code == 422
+    
+
+def test_programas_traen_los_parametros_del_panel(con_sesion):
+    """Valores cargados por la migración 0010 (docs/RESPUESTAS-SERVICIO.md)."""
+    filas = {f["nombre"]: f for f in con_sesion.get("/programas").json()}
+
+    textil = filas["Textil 134 °C"]
+    assert textil["temperatura_c"] == 134.0
+    assert isinstance(textil["temperatura_c"], float)  # número, no texto
+    assert textil["tiempo_esterilizacion_min"] == 10
+    assert textil["tiempo_secado_min"] == 10
+    assert textil["tiempo_desgasificacion_min"] is None
+    assert textil["vacio_bar"] == -0.75
+    assert textil["vapor_bar"] == 1.0
+    assert textil["pulsos"] == 2
+
+    oxido = filas["Ciclo caliente 55 °C"]
+    assert oxido["temperatura_c"] == 55.0
+    assert oxido["tiempo_esterilizacion_min"] == 180
+    assert oxido["tiempo_desgasificacion_min"] == 720
+    assert oxido["tiempo_secado_min"] is None
+
+    programable = filas["P programable"]  # estufa: sin valores fijos
+    assert all(programable[clave] is None for clave in CLAVES_PROGRAMA - {"id", "nombre", "metodo_id"})
 
 
 # --- Propuesta del número de lote ----------------------------------------

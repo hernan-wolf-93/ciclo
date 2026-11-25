@@ -32,14 +32,19 @@ def validar_transicion(
 ) -> None:
     """Lanza ErrorDeFlujo si el ítem no puede pasar de una etapa a otra.
 
-    resultado_ultimo_lote solo importa cuando el ítem está en Esterilización:
-    es el resultado del lote de su último evento (None si el lote sigue en curso).
+    resultado_ultimo_lote solo importa cuando el ítem está en Esterilización o en
+    Almacén: es el resultado del lote de su último evento (None si el lote sigue en
+    curso o, en Almacén, si el evento no registró lote).
     """
     if not ORDEN_PRIMERA_ETAPA <= orden_destino <= ORDEN_ULTIMA_ETAPA:
         raise ErrorDeFlujo("La etapa de destino no existe")
 
     if orden_actual == ORDEN_ESTERILIZACION:
         _validar_salida_de_esterilizacion(orden_destino, resultado_ultimo_lote)
+        return
+
+    if orden_actual == ORDEN_ALMACEN:
+        _validar_salida_de_almacen(orden_destino, resultado_ultimo_lote)
         return
 
     if orden_destino != orden_actual + 1:
@@ -68,6 +73,34 @@ def _validar_salida_de_esterilizacion(orden_destino: int, resultado: str | None)
         "Desde Esterilización solo se avanza a Almacén (lote aprobado) "
         "o se reesterilizan (lote fallido)"
     )
+    
+    
+def _validar_salida_de_almacen(orden_destino: int, resultado: str | None) -> None:
+    """Un lote puede fallar después del cierre (indicador biológico o externo).
+
+    Mientras el ítem esté en Almacén, el resultado del lote decide a dónde va. Los
+    eventos de Almacén y de Entrega deben registrar lote_id: sin él no se puede saber
+    si el lote fue aprobado y el ítem no avanza.
+    """
+    if resultado is None:
+        raise ErrorDeFlujo(
+            "El ítem de Almacén no tiene lote registrado (o su lote sigue en curso)"
+        )
+    if resultado == RESULTADO_FALLIDO:
+        if orden_destino != ORDEN_ESTERILIZACION:
+            raise ErrorDeFlujo(
+                f"Un ítem de un lote fallido no avanza a la etapa {orden_destino}: "
+                "solo vuelve a Esterilización"
+            )
+        return
+    if orden_destino == ORDEN_ESTERILIZACION:
+        raise ErrorDeFlujo("Solo se puede reesterilizar un ítem cuyo lote quedó fallido")
+    if orden_destino != ORDEN_ULTIMA_ETAPA:
+        raise ErrorDeFlujo(
+            f"No se puede pasar de la etapa {ORDEN_ALMACEN} a la {orden_destino}: "
+            "solo se avanza a la etapa siguiente"
+        )
+    
     
 @dataclass(frozen=True)
 class SituacionItem:

@@ -10,18 +10,21 @@ from app.services.flujo import ErrorDeFlujo, validar_transicion
         (2, 3, None),
         (3, 4, None),
         (4, 5, "aprobado"),
-        (5, 6, None),
+        (5, 6, "aprobado"),
         (4, 4, "fallido"),
+        (5, 4, "fallido"),
     ],
     ids=[
         "recepción a lavado",
         "lavado a empaque",
         "empaque a esterilización",
         "esterilización aprobada a almacén",
-        "almacén a entrega",
+        "almacén a entrega con lote aprobado",
         "reesterilización tras lote fallido",
+        "reesterilización desde almacén tras lote fallido",
     ],
 )
+
 def test_transiciones_validas(actual, destino, resultado):
     validar_transicion(actual, destino, resultado)  # no debe lanzar nada
 
@@ -33,7 +36,7 @@ def test_transiciones_validas(actual, destino, resultado):
         (1, 1, None, "etapa siguiente"),
         (2, 1, None, "etapa siguiente"),
         (3, 5, None, "etapa siguiente"),
-        (5, 5, None, "etapa siguiente"),
+        (5, 5, "aprobado", "etapa siguiente"),
         (6, 7, None, "no existe"),
         (4, 5, None, "en curso"),
         (4, 4, None, "en curso"),
@@ -41,6 +44,10 @@ def test_transiciones_validas(actual, destino, resultado):
         (4, 4, "aprobado", "fallido"),
         (4, 6, "aprobado", "Desde Esterilización"),
         (4, 3, "fallido", "Desde Esterilización"),
+        (5, 6, None, "no tiene lote"),
+        (5, 6, "fallido", "fallido"),
+        (5, 3, "fallido", "solo vuelve a Esterilización"),
+        (5, 4, "aprobado", "fallido"),
     ],
     ids=[
         "salta lavado",
@@ -55,8 +62,13 @@ def test_transiciones_validas(actual, destino, resultado):
         "reesterilizar con lote aprobado",
         "salta almacén",
         "vuelve a empaque tras fallo",
+        "almacén sin lote registrado",
+        "entrega con lote fallido",
+        "almacén a empaque con lote fallido",
+        "reesterilizar desde almacén con lote aprobado",
     ],
 )
+
 def test_transiciones_invalidas(actual, destino, resultado, fragmento):
     with pytest.raises(ErrorDeFlujo, match=fragmento):
         validar_transicion(actual, destino, resultado)

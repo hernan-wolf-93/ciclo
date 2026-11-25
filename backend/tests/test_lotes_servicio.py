@@ -9,17 +9,18 @@ FIN = datetime(2026, 11, 12, 13, 30, tzinfo=timezone.utc)
 ESTERILIZACION = 4
 
 
+# Desde la migración 0010 se usa metodo_esterilizacion.requiere_aireacion, no el nombre
 def test_aireacion_es_fin_mas_dias_en_oxido_de_etileno():
-    assert fin_aireacion("Óxido de etileno", FIN, 7) == FIN + timedelta(days=7)
+    assert fin_aireacion(True, FIN, 7) == FIN + timedelta(days=7)
 
 
 def test_aireacion_nula_en_otros_metodos():
-    assert fin_aireacion("Calor húmedo", FIN, 7) is None
+    assert fin_aireacion(False, FIN, 7) is None
 
 
 def test_aireacion_nula_si_no_termino_o_no_tiene_items():
-    assert fin_aireacion("Óxido de etileno", None, 7) is None
-    assert fin_aireacion("Óxido de etileno", FIN, None) is None
+    assert fin_aireacion(True, None, 7) is None
+    assert fin_aireacion(True, FIN, None) is None
 
 
 def _ev(etapa_id, lote_id=None):

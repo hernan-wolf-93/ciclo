@@ -44,11 +44,13 @@ def listar_tablero(
     servicio_id: int | None = None,
     material_id: int | None = None,
     lote_ids: list[int] | None = None,
+    externo: bool | None = None,
 ) -> list[FilaTableroOut]:
     """Recepciones en curso: urgentes primero y, dentro de cada grupo, la más antigua primero.
 
-    Filtros: urgente, servicio de origen, material (recepciones que lo tienen) y
-    lotes (recepciones con algún ítem que pasó por alguno de esos lotes).
+    Filtros: urgente, servicio de origen, material (recepciones que lo tienen),
+    lotes (recepciones con algún ítem que pasó por alguno de esos lotes) y centros
+    externos (servicio.externo, migración 0010).
     """
     # TODO: hoy se leen todas las recepciones que cumplen los filtros y después se
     # descartan las ya entregadas. Si el volumen crece, filtrar en SQL o paginar.
@@ -60,6 +62,10 @@ def listar_tablero(
         consulta = consulta.where(Recepcion.urgente.is_(urgente))
     if servicio_id is not None:
         consulta = consulta.where(Recepcion.servicio_id == servicio_id)
+    if externo is not None:
+        consulta = consulta.where(
+            Recepcion.servicio_id.in_(select(Servicio.id).where(Servicio.externo.is_(externo)))
+        )
     if material_id is not None:
         consulta = consulta.where(
             Recepcion.id.in_(select(Item.recepcion_id).where(Item.material_id == material_id))

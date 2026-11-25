@@ -10,6 +10,7 @@ import Esterilizacion from './pages/Esterilizacion'
 import Lotes from './pages/Lotes'
 import Entrega from './pages/Entrega'
 import Usuarios from './pages/Usuarios'
+import Catalogos from './pages/Catalogos'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="esterilizacion" element={<Esterilizacion />} />
           <Route path="lotes" element={<Lotes />} />
           <Route path="entrega" element={<Entrega />} />
+          <Route path="catalogos" element={<Catalogos />} />
           <Route path="usuarios" element={<Usuarios />} />
         </Route>
       </Route>

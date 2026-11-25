@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Equipo, EventoItem, Item, Lote, Material, MetodoEsterilizacion, Recepcion, Servicio
+from app.models import Equipo, EventoItem, Item, Lote, Material, MetodoEsterilizacion, Programa, Recepcion, Servicio
 from app.schemas.aviso import AvisoOut, LoteAvisoRef, MaterialRef
 from app.schemas.tablero import ServicioRef
 from app.services import reglas_avisos as reglas
@@ -60,20 +60,30 @@ def _fecha_ultimo_evento(db: Session, item_ids: list[int]) -> dict[int, datetime
     return {item_id: fecha for item_id, fecha in filas}
 
 
-def _regla_del_item(etapa: int, desde_evento: datetime, lote: Lote | None, metodo: str | None,
+@dataclass(frozen=True)
+class _InfoLote:
+    """Lo que hace falta de un lote para aplicar las reglas."""
+
+    lote: Lote
+    equipo: str
+    metodo: str
+    requiere_aireacion: bool  # metodo_esterilizacion.requiere_aireacion (migración 0010)
+    duracion_programa: int | None  # minutos según el panel del equipo; None si no tiene tiempos
+
+
+def _regla_del_item(etapa: int, desde_evento: datetime, info: _InfoLote | None,
                     dias_aireacion: int, ahora: datetime) -> tuple[str, str | int, datetime, int | None] | None:
     """Devuelve (tipo, motivo, desde, umbral) si el ítem genera un aviso, o None."""
     if etapa in reglas.UMBRAL_POR_ETAPA_MIN:
         umbral = reglas.UMBRAL_POR_ETAPA_MIN[etapa]
         return ("detenido", etapa, desde_evento, umbral) if reglas.supera(desde_evento, ahora, umbral) else None
 
-    if etapa not in (ORDEN_ESTERILIZACION, ORDEN_ALMACEN) or lote is None:
+    if etapa not in (ORDEN_ESTERILIZACION, ORDEN_ALMACEN) or info is None:
         return None
+    lote = info.lote
 
-    lleva_aireacion = metodo == reglas.METODO_CON_AIREACION
-
-    # Óxido de etileno aprobado: aviso cuando se cumple la aireación (en Esterilización o en Almacén)
-    if lleva_aireacion and lote.resultado == "aprobado" and lote.fin is not None:
+    # Método con aireación y lote aprobado: aviso cuando se cumple (en Esterilización o en Almacén)
+    if info.requiere_aireacion and lote.resultado == "aprobado" and lote.fin is not None:
         fin_aireacion = lote.fin + timedelta(days=dias_aireacion)
         return ("listo_para_retirar", "aireacion_cumplida", fin_aireacion, None) if ahora >= fin_aireacion else None
 
@@ -82,7 +92,7 @@ def _regla_del_item(etapa: int, desde_evento: datetime, lote: Lote | None, metod
 
     # En Esterilización
     if lote.fin is None:
-        umbral = reglas.umbral_esterilizacion(metodo or "")
+        umbral = reglas.umbral_esterilizacion_programa(info.metodo, info.duracion_programa)
         return ("detenido", "lote_sin_cerrar", lote.inicio, umbral) if reglas.supera(lote.inicio, ahora, umbral) else None
 
     umbral = reglas.UMBRAL_TRAS_CIERRE_MIN
@@ -100,8 +110,8 @@ def _regla_del_item(etapa: int, desde_evento: datetime, lote: Lote | None, metod
 def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
     """Avisos agrupados por recepción, material, etapa y motivo.
 
-    Primero los detenidos, del que más se pasó de su umbral al que menos; después
-    los listos para retirar, del más viejo al más nuevo.
+    Primero los detenidos: los graves, después por proporción de su umbral y después
+    por antigüedad. Al final los listos para retirar, del más viejo al más nuevo.
     """
     # TODO: hoy se revisan todos los ítems; si el volumen crece, filtrar los entregados en SQL.
     items = list(db.scalars(select(Item).order_by(Item.id)))
@@ -115,11 +125,20 @@ def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
 
     # Catálogos, con una consulta por tabla
     lotes = {
-        lote.id: (lote, equipo, metodo)
-        for lote, equipo, metodo in db.execute(
-            select(Lote, Equipo.nombre, MetodoEsterilizacion.nombre)
+        lote.id: _InfoLote(
+            lote=lote,
+            equipo=equipo,
+            metodo=metodo.nombre,
+            requiere_aireacion=metodo.requiere_aireacion,
+            duracion_programa=reglas.duracion_programa(
+                programa.tiempo_esterilizacion_min, programa.tiempo_secado_min, programa.tiempo_desgasificacion_min
+            ),
+        )
+        for lote, equipo, metodo, programa in db.execute(
+            select(Lote, Equipo.nombre, MetodoEsterilizacion, Programa)
             .join(Equipo, Equipo.id == Lote.equipo_id)
             .join(MetodoEsterilizacion, MetodoEsterilizacion.id == Equipo.metodo_id)
+            .join(Programa, Programa.id == Lote.programa_id)
             .where(Lote.id.in_(set(lote_por_item.values())))
         )
     }
@@ -137,10 +156,9 @@ def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
     for item in items:
         etapa = situaciones[item.id].orden_etapa
         lote_id = lote_por_item.get(item.id) if etapa >= ORDEN_ESTERILIZACION else None
-        lote, _, metodo = lotes.get(lote_id, (None, None, None))
         servicio = servicio_por_recepcion[item.recepcion_id]
 
-        regla = _regla_del_item(etapa, fechas[item.id], lote, metodo, servicio.dias_aireacion, ahora)
+        regla = _regla_del_item(etapa, fechas[item.id], lotes.get(lote_id), servicio.dias_aireacion, ahora)
         if regla is None:
             continue
         tipo, motivo, desde, umbral = regla
@@ -154,9 +172,9 @@ def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
         lote_ref = None
         texto_lote = ""
         if clave.lote_id is not None:
-            lote, equipo, _ = lotes[clave.lote_id]
-            lote_ref = LoteAvisoRef(id=lote.id, numero=lote.numero, equipo=equipo)
-            texto_lote = f"N.º {lote.numero:02d} de {equipo}"
+            info = lotes[clave.lote_id]
+            lote_ref = LoteAvisoRef(id=info.lote.id, numero=info.lote.numero, equipo=info.equipo)
+            texto_lote = f"N.º {info.lote.numero:02d} de {info.equipo}"
         servicio = servicio_por_recepcion[clave.recepcion_id]
         material = materiales[clave.material_id]
         avisos.append(
@@ -171,13 +189,27 @@ def listar_avisos(db: Session, ahora: datetime) -> list[AvisoOut]:
                 desde=desde,
                 minutos_transcurridos=minutos,
                 umbral_minutos=clave.umbral,
+                gravedad=(
+                    reglas.gravedad(clave.motivo, minutos, clave.umbral)
+                    if clave.tipo == "detenido" and clave.umbral is not None
+                    else None
+                ),
                 motivo=MOTIVOS[clave.motivo].format(dur=reglas.duracion(minutos), lote=texto_lote),
             )
         )
 
+    # Detenidos: primero los graves; después, cuántas veces se cumplió el umbral de su
+    # etapa (los umbrales son muy distintos entre etapas, por eso no se comparan minutos);
+    # a igual proporción, el más antiguo.
     detenidos = sorted(
         (a for a in avisos if a.tipo == "detenido"),
-        key=lambda a: (-(a.minutos_transcurridos - (a.umbral_minutos or 0)), a.recepcion_id, a.material.nombre),
+        key=lambda a: (
+            a.gravedad != "alta",
+            -reglas.proporcion(a.minutos_transcurridos, a.umbral_minutos or 0),
+            a.desde,
+            a.recepcion_id,
+            a.material.nombre,
+        ),
     )
     listos = sorted((a for a in avisos if a.tipo == "listo_para_retirar"), key=lambda a: (a.desde, a.recepcion_id))
     return detenidos + listos

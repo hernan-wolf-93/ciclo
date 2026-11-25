@@ -5,6 +5,7 @@ export interface Servicio {
   id: number
   nombre: string
   dias_aireacion: number // días de aireación de óxido de etileno según el origen (migración 0007)
+  externo?: boolean // centro externo (migración 0010); solo viene con ?incluir_inactivos=true (ver ServicioAdmin)
 }
 
 export interface Material {
@@ -50,6 +51,8 @@ export interface RecepcionCreada {
 export interface MetodoEsterilizacion {
   id: number
   nombre: string
+  requiere_aireacion: boolean // true solo en óxido de etileno (migración 0010)
+  vencimiento_dias: number | null // provisorio: 90, 90 y 365
 }
 
 export interface Equipo {
@@ -59,18 +62,17 @@ export interface Equipo {
   metodo: MetodoEsterilizacion // * el método del lote sale de su equipo
 }
 
-// ? En el modelo, programa.metodo_id es provisorio (pendiente de validar con el servicio)
-// * Los parámetros son los programados en el equipo (informe del autoclave,
-// * fotos del 13/11/2026). El encabezado del ticket los repite.
-// ! PROVISORIO: temperatura_c, tiempo_esterilizacion_min, tiempo_secado_min,
-// ! vacio_bar, vapor_bar y pulsos todavía no existen: necesitan la migración 0008.
+// * Parámetros del panel del equipo (migración 0010, docs/RESPUESTAS-SERVICIO.md).
+// * El encabezado del ticket los repite. Todos opcionales: el programa P de la estufa
+// * no tiene valores fijos.
 export interface Programa {
   id: number
   nombre: string
   metodo_id: number
-  temperatura_c: number
-  tiempo_esterilizacion_min: number
-  tiempo_secado_min: number | null // null = sin dato para ese equipo
+  temperatura_c: number | null
+  tiempo_esterilizacion_min: number | null
+  tiempo_secado_min: number | null
+  tiempo_desgasificacion_min: number | null // óxido de etileno: dentro del equipo, no es la aireación
   vacio_bar: number | null // presión negativa, ej.: -0.75
   vapor_bar: number | null
   pulsos: number | null // pulsos de vapor y vacío
@@ -148,9 +150,7 @@ export interface LoteDetalle {
   fin: string | null
   resultado: ResultadoLote | null
   observacion: string | null // motivo, obligatorio si resultado es 'fallido'
-  // ! PROVISORIO: N.º de ciclo impreso en el ticket del equipo. La columna
-  // ! lote.numero_ciclo todavía no existe: necesita la migración 0008.
-  numero_ciclo: string | null
+  numero_ciclo: string | null // contador del equipo (lote.numero_ciclo, migración 0010)
   equipo: Equipo
   programa: Programa // con sus parámetros: son los "datos del ciclo"
   operador: Operador
@@ -239,6 +239,26 @@ export interface UsuarioAdmin {
   activo: boolean
 }
 
+// ---------------------------------------------------------------------------
+// Catálogos (ABM de servicios y materiales, solo administradores)
+// * Vienen de GET /servicios y GET /materiales con ?incluir_inactivos=true.
+// ---------------------------------------------------------------------------
+export interface ServicioAdmin {
+  id: number
+  nombre: string
+  externo: boolean // centro externo: otro hospital, área programática o sanatorio
+  dias_aireacion: number // 0 a 365
+  activo: boolean
+}
+
+export interface MaterialAdmin {
+  id: number
+  nombre: string
+  codigo: string | null // en mayúsculas y sin espacios
+  nombre_alternativo: string | null
+  activo: boolean
+}
+
 // Respuesta de POST /operadores/{id}/codigo-recuperacion.
 // ! Se muestra una sola vez: no se guarda en ningún lado.
 export interface CodigoRecuperacion {
@@ -256,7 +276,15 @@ export type EtapaAvance = 2 | 3
 export interface LineaAvance {
   material_id: number
   cantidad: number
-  // TODO: método por línea en Empaque (metodo_id), cuando Lobo ajuste POST /avances.
+  // Obligatorio en Empaque (cada método lleva otro envoltorio); en Lavado no va.
+  // Un mismo material puede ir en dos líneas con métodos distintos.
+  metodo_id?: number
+}
+
+// Método de esterilización (GET /metodos)
+export interface Metodo {
+  id: number
+  nombre: string
 }
 
 export interface NuevoAvance {
@@ -273,8 +301,9 @@ export interface AvanceRegistrado {
   solo_desinfeccion: boolean
 }
 
-// TODO: forma acordada de GET /avances/pendientes?etapa_orden=N (todavía no existe).
-// Unidades que esperan pasar a esa etapa, por servicio de origen y material.
+// GET /avances/pendientes?etapa_orden=N: unidades que esperan pasar a esa etapa, por
+// servicio de origen y material. La pantalla las suma por material, porque el avance
+// toma los ítems más antiguos del material sin mirar el servicio.
 export interface Pendiente {
   servicio_id: number
   servicio: string
@@ -319,6 +348,7 @@ export interface FilaTablero {
 export interface FiltrosTablero {
   urgente?: boolean
   lote_ids?: number[]
+  externo?: boolean // centros externos (servicio.externo, migración 0010)
 }
 
 // ---------------------------------------------------------------------------
@@ -337,5 +367,7 @@ export interface Aviso {
   desde: string
   minutos_transcurridos: number // calculado en el servidor
   umbral_minutos: number | null // null en "listo para retirar"
+  // Solo en "detenido": alta si lleva el doble de su umbral (o el lote falló). Provisorio.
+  gravedad: 'alta' | 'media' | null
   motivo: string // texto listo para mostrar
 }

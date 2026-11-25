@@ -7,10 +7,11 @@ from app.models.catalogos import (
     Servicio,
     ServicioIncompatible,
 )
-from app.models.circuito import Entrega, EventoItem, Item, Lote, Recepcion
+from app.models.circuito import ControlBowieDick, Entrega, EventoItem, Item, Lote, Recepcion
 from app.models.usuarios import Operador, RecuperacionContrasena, Rol
 
 __all__ = [
+    "ControlBowieDick",
     "Entrega",
     "Equipo",
     "Etapa",

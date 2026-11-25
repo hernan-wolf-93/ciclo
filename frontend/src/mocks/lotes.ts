@@ -15,18 +15,18 @@ import type {
 // * siempre se ven recientes y el lote de óxido de etileno sigue "en aireación".
 
 // ---------------------------------------------------------------------------
-// Catálogos: mismos que las migraciones 0002 y 0004 del back
+// Catálogos: mismos que las migraciones 0002, 0004 y 0010 del back
 // ---------------------------------------------------------------------------
 
 const METODOS: MetodoEsterilizacion[] = [
-  { id: 1, nombre: 'Calor húmedo' },
-  { id: 2, nombre: 'Calor seco' },
-  { id: 3, nombre: 'Óxido de etileno' },
+  { id: 1, nombre: 'Calor húmedo', requiere_aireacion: false, vencimiento_dias: 90 },
+  { id: 2, nombre: 'Calor seco', requiere_aireacion: false, vencimiento_dias: 90 },
+  { id: 3, nombre: 'Óxido de etileno', requiere_aireacion: true, vencimiento_dias: 365 },
 ]
 
 const metodo = (id: number) => METODOS.find((m) => m.id === id)!
 
-export const EQUIPOS: Equipo[] = [
+const EQUIPOS: Equipo[] = [
   { id: 1, nombre: 'Autoclave 1', metodo_id: 1, metodo: metodo(1) },
   { id: 2, nombre: 'Autoclave 2', metodo_id: 1, metodo: metodo(1) },
   { id: 3, nombre: 'Estufa 1', metodo_id: 2, metodo: metodo(2) },
@@ -34,46 +34,41 @@ export const EQUIPOS: Equipo[] = [
   { id: 5, nombre: 'Óxido de etileno 1', metodo_id: 3, metodo: metodo(3) },
 ]
 
-// * Parámetros reales del autoclave, tomados de las fotos de su panel
-// * (informe del autoclave, 13/11/2026).
-// ! Los parámetros de programa y los programas Líquidos y Priones necesitan
-// ! la migración 0008: hoy la base solo tiene nombre y metodo_id, y carga
-// ! Textil, Instrumental y Gomas.
-export const PROGRAMAS: Programa[] = [
+// * Parámetros de los paneles de los equipos, cargados en la migración 0010
+// * (docs/RESPUESTAS-SERVICIO.md). Los ids son de estos datos de prueba.
+const sinValores = { tiempo_desgasificacion_min: null }
+const PROGRAMAS: Programa[] = [
   {
-    id: 1, nombre: 'Textil 134 °C', metodo_id: 1,
+    id: 1, nombre: 'Textil 134 °C', metodo_id: 1, ...sinValores,
     temperatura_c: 134, tiempo_esterilizacion_min: 10, tiempo_secado_min: 10,
     vacio_bar: -0.75, vapor_bar: 1, pulsos: 2,
   },
   {
-    id: 2, nombre: 'Instrumental 134 °C', metodo_id: 1,
+    id: 2, nombre: 'Instrumental 134 °C', metodo_id: 1, ...sinValores,
     temperatura_c: 134, tiempo_esterilizacion_min: 20, tiempo_secado_min: 30,
     vacio_bar: -0.75, vapor_bar: 1, pulsos: 1,
   },
-  // ? En la base se llama "Gomas 121 °C"; en el panel del autoclave, "Termolábil".
-  // ? Falta confirmar con el servicio que son el mismo programa.
+  // El mismo programa que antes se llamaba "Gomas 121 °C" (confirmado por el servicio)
   {
-    id: 3, nombre: 'Termolábil 121 °C', metodo_id: 1,
+    id: 3, nombre: 'Termolábil 121 °C', metodo_id: 1, ...sinValores,
     temperatura_c: 121, tiempo_esterilizacion_min: 20, tiempo_secado_min: 20,
     vacio_bar: -0.75, vapor_bar: 0.8, pulsos: 2,
   },
   {
-    id: 4, nombre: 'Líquidos 121 °C', metodo_id: 1,
+    id: 4, nombre: 'Líquidos 121 °C', metodo_id: 1, ...sinValores,
     temperatura_c: 121, tiempo_esterilizacion_min: 20, tiempo_secado_min: 0,
     vacio_bar: -0.4, vapor_bar: 0, pulsos: 0,
   },
   {
-    id: 5, nombre: 'Priones 134 °C', metodo_id: 1,
+    id: 5, nombre: 'Priones 134 °C', metodo_id: 1, ...sinValores,
     temperatura_c: 134, tiempo_esterilizacion_min: 60, tiempo_secado_min: 20,
     vacio_bar: -0.75, vapor_bar: 1, pulsos: 2,
   },
-  // ? Nombre confirmado por el servicio. El informe solo cubre el autoclave.
-  // ? Los 180 min salen de una foto del panel del equipo de óxido de etileno,
-  // ? que muestra "Ciclo 55°C" (no 56): falta confirmarlo. El resto, sin dato.
+  // Óxido de etileno: la desgasificación ocurre dentro del equipo y no es la aireación
   {
-    id: 6, nombre: 'Ciclo caliente 56 °C', metodo_id: 3,
-    temperatura_c: 56, tiempo_esterilizacion_min: 180, tiempo_secado_min: null,
-    vacio_bar: null, vapor_bar: null, pulsos: null,
+    id: 6, nombre: 'Ciclo caliente 55 °C', metodo_id: 3,
+    temperatura_c: 55, tiempo_esterilizacion_min: 180, tiempo_secado_min: null,
+    tiempo_desgasificacion_min: 720, vacio_bar: null, vapor_bar: null, pulsos: null,
   },
 ]
 
@@ -215,8 +210,8 @@ const loteViejo: LoteDetalle = {
   ],
 }
 
-// Óxido de etileno en aireación: mezcla Consultorios (3 días) y Pediatría (7 días).
-// Terminó hace 4 días: Consultorios ya cumplió la aireación, Pediatría todavía no.
+// Óxido de etileno en aireación: mezcla Consultorios Externos (3 días) y Pediatría (7 días).
+// Terminó hace 4 días: Consultorios Externos ya cumplió la aireación, Pediatría todavía no.
 // La pantalla la calcula con lote.fin + servicio.dias_aireacion.
 const loteOxido: LoteDetalle = {
   id: 2,
@@ -235,8 +230,7 @@ const loteOxido: LoteDetalle = {
   reemplazado_por: null,
   reemplaza_a: null,
   items: [
-    // ? Guardia Pediátrica lleva 7 días según el servicio; falta confirmar si es
-    // ? un servicio aparte de Guardia y de Pediatría. Por eso acá va Consultorios.
+    // Consultorios Externos: 3 días de aireación (Guardia Pediátrica, en cambio, lleva 7)
     item({
       id: 2, recepcion_id: 2, material_id: 14, servicio_id: 5, metodo_id: 3, lote_id: 2,
       pasos: [

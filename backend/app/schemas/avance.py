@@ -7,6 +7,9 @@ class LineaAvanceIn(BaseModel):
     material_id: int = Field(gt=0)
     # El máximo de 500 es provisorio, igual que en recepción.
     cantidad: int = Field(ge=1, le=500)
+    # Solo en Empaque: el método se decide antes de empacar, porque cada método
+    # lleva otro envoltorio (docs/RESPUESTAS-SERVICIO.md).
+    metodo_id: int | None = Field(default=None, gt=0)
 
 
 class AvanceIn(BaseModel):
@@ -21,9 +24,21 @@ class AvanceIn(BaseModel):
         if self.observacion is not None:
             self.observacion = self.observacion.strip() or None
 
-        ids = [linea.material_id for linea in self.items]
-        if len(ids) != len(set(ids)):
-            raise ValueError("Un material no puede repetirse en dos líneas: sume las cantidades")
+        if self.etapa_orden == 3:
+            if any(linea.metodo_id is None for linea in self.items):
+                raise ValueError("En Empaque hay que indicar el método de cada línea")
+            claves = [(linea.material_id, linea.metodo_id) for linea in self.items]
+            if len(claves) != len(set(claves)):
+                raise ValueError(
+                    "Un material no puede repetirse con el mismo método en dos líneas: "
+                    "sume las cantidades"
+                )
+        else:
+            if any(linea.metodo_id is not None for linea in self.items):
+                raise ValueError("El método se elige al empacar: en el lavado no se indica")
+            ids = [linea.material_id for linea in self.items]
+            if len(ids) != len(set(ids)):
+                raise ValueError("Un material no puede repetirse en dos líneas: sume las cantidades")
 
         if self.solo_desinfeccion:
             if self.etapa_orden != 2:
@@ -37,3 +52,11 @@ class AvanceOut(BaseModel):
     etapa_orden: int
     total_items: int
     solo_desinfeccion: bool
+    
+
+class PendienteOut(BaseModel):
+    servicio_id: int
+    servicio: str
+    material_id: int
+    material: str
+    cantidad: int

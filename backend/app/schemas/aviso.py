@@ -33,4 +33,7 @@ class AvisoOut(BaseModel):
     desde: datetime  # el ítem más viejo del grupo (o el fin de la aireación)
     minutos_transcurridos: int  # calculado en el servidor con el mismo "ahora"
     umbral_minutos: int | None  # null en "listo para retirar"
+    # Solo en "detenido": alta si lleva FACTOR_GRAVE veces su umbral (o el lote falló);
+    # null en "listo para retirar" (services/reglas_avisos.py)
+    gravedad: Literal["alta", "media"] | None
     motivo: str

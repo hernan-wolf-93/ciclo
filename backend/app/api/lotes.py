@@ -22,9 +22,13 @@ def listar(
         int | None,
         Query(ge=1, le=999, description="Número de lote. Se repite: puede devolver varios."),
     ] = None,
+    en_curso: Annotated[
+        bool,
+        Query(description="Si es true, solo los lotes que todavía no se cerraron."),
+    ] = False,
 ):
     """Lista de lotes, del más nuevo al más viejo."""
-    return listar_lotes(db, numero)
+    return listar_lotes(db, numero, en_curso)
 
 
 @router.get("/{lote_id}", response_model=LoteDetalleOut)

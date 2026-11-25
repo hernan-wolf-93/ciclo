@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Alert, Badge, Button, Group, Loader, Paper, SegmentedControl, Stack, Table, Text, TextInput, Title } from '@mantine/core'
+import {
+  Alert,
+  Badge,
+  Button,
+  Collapse,
+  Group,
+  Loader,
+  Paper,
+  SegmentedControl,
+  Select,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { buscarLotes, obtenerTablero } from '../services/tableroService'
 import { obtenerAvisos } from '../services/avisosService'
 import type { Aviso, FilaTablero, LoteResumen } from '../types'
@@ -23,6 +38,18 @@ const ETAPAS = [
 const nombreEtapa = (orden: number) => ETAPAS.find((e) => e.orden === orden)?.nombre ?? `Etapa ${orden}`
 
 type Filtro = 'todos' | 'urgentes' | 'externos'
+
+// Marca de una fila del tablero con avisos en el panel "Requieren atención"
+interface MarcaAvisos {
+  cantidad: number
+  color: 'red' | 'orange' | 'green'
+}
+
+// Cada cuánto se vuelven a pedir el tablero y los avisos sin recargar la página
+const ACTUALIZAR_CADA_MS = 2 * 60 * 1000
+
+// "14:05" (24 h)
+const hora = (fecha: Date) => fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 // "22/11 09:40" (24 h)
 function diaHora(iso: string) {
@@ -54,6 +81,7 @@ export default function Tablero() {
   const [error, setError] = useState('')
   const [recargas, setRecargas] = useState(0)
   const [avisos, setAvisos] = useState<Aviso[]>([])
+  const [actualizado, setActualizado] = useState<Date | null>(null)
 
   const numeroLote = comoNumeroDeLote(busqueda)
 
@@ -63,7 +91,9 @@ export default function Tablero() {
     let vigente = true
     obtenerAvisos()
       .then((lista) => {
-        if (vigente) setAvisos(lista)
+        if (!vigente) return
+        setAvisos(lista)
+        setActualizado(new Date())
       })
       .catch(() => {
         if (vigente) setAvisos([])
@@ -73,10 +103,40 @@ export default function Tablero() {
     }
   }, [recargas])
 
-  // Cuántos avisos tiene cada recepción, para marcar sus filas
-  const avisosPorRecepcion = new Map<number, number>()
+  // Actualización automática: cada 2 minutos, solo mientras la pestaña está a la vista.
+  // Al volver a la pestaña, si ya pasó ese tiempo, se actualiza enseguida.
+  // No muestra el cargando: los datos se reemplazan sin que la pantalla salte.
+  useEffect(() => {
+    let ultima = Date.now()
+    const actualizar = () => {
+      ultima = Date.now()
+      setRecargas((n) => n + 1)
+    }
+    const intervalo = setInterval(() => {
+      if (document.visibilityState === 'visible') actualizar()
+    }, ACTUALIZAR_CADA_MS)
+    const alVolver = () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultima >= ACTUALIZAR_CADA_MS) actualizar()
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => {
+      clearInterval(intervalo)
+      document.removeEventListener('visibilitychange', alVolver)
+    }
+  }, [])
+
+  // Cuántos avisos tiene cada recepción y de qué color va su marca:
+  // rojo si alguno es grave, naranja si alguno está detenido, verde si solo hay listos para retirar
+  const avisosPorRecepcion = new Map<number, MarcaAvisos>()
   for (const aviso of avisos) {
-    avisosPorRecepcion.set(aviso.recepcion_id, (avisosPorRecepcion.get(aviso.recepcion_id) ?? 0) + 1)
+    const actual = avisosPorRecepcion.get(aviso.recepcion_id) ?? { cantidad: 0, color: 'green' }
+    const color =
+      actual.color === 'red' || aviso.gravedad === 'alta'
+        ? 'red'
+        : actual.color === 'orange' || aviso.tipo === 'detenido'
+          ? 'orange'
+          : 'green'
+    avisosPorRecepcion.set(aviso.recepcion_id, { cantidad: actual.cantidad + 1, color })
   }
 
   // Trae el tablero al entrar, al cambiar el filtro o al buscar un N.º de lote.
@@ -99,6 +159,7 @@ export default function Tablero() {
         }
         const datos = await obtenerTablero({
           urgente: filtro === 'urgentes' ? true : undefined,
+          externo: filtro === 'externos' ? true : undefined,
           lote_ids: lotes?.map((l) => l.id),
         })
         if (vigente) {
@@ -147,16 +208,23 @@ export default function Tablero() {
           <Title order={1}>Tablero</Title>
           <Text c="dimmed">Material en curso por recepción. Lo urgente aparece primero.</Text>
         </div>
-        <Button
-          size="md"
-          variant="default"
-          onClick={() => {
-            setCargando(true)
-            setRecargas((n) => n + 1)
-          }}
-        >
-          Actualizar
-        </Button>
+        <Stack gap={4} align="flex-end">
+          <Button
+            size="md"
+            variant="default"
+            onClick={() => {
+              setCargando(true)
+              setRecargas((n) => n + 1)
+            }}
+          >
+            Actualizar
+          </Button>
+          {actualizado && (
+            <Text size="xs" c="dimmed">
+              Actualizado a las {hora(actualizado)} · se actualiza solo cada 2 min
+            </Text>
+          )}
+        </Stack>
       </Group>
 
       <PanelAtencion avisos={avisos} />
@@ -170,15 +238,10 @@ export default function Tablero() {
             data={[
               { label: 'Todos', value: 'todos' },
               { label: 'Urgentes', value: 'urgentes' },
-              // TODO: falta el dato en servicio para saber cuáles son externos (pedido a Lobo)
-              // y confirmar con el servicio qué significa: probablemente centros de otras
-              // localidades, como Aguilares y Monteros.
-              { label: 'Centros externos', value: 'externos', disabled: true },
+              // Hospitales de otras localidades, Área Programática y sanatorios (servicio.externo)
+              { label: 'Centros externos', value: 'externos' },
             ]}
           />
-          <Text size="xs" c="dimmed" mt={4}>
-            Centros externos: pendiente, falta el dato en el sistema.
-          </Text>
         </div>
         <TextInput
           size="md"
@@ -232,7 +295,7 @@ export default function Tablero() {
             {visibles.length} {visibles.length === 1 ? 'recepción en curso' : 'recepciones en curso'}
           </Text>
           {visibles.map((fila) => (
-            <FilaRecepcion key={fila.recepcion_id} fila={fila} avisos={avisosPorRecepcion.get(fila.recepcion_id) ?? 0} />
+            <FilaRecepcion key={fila.recepcion_id} fila={fila} avisos={avisosPorRecepcion.get(fila.recepcion_id)} />
           ))}
         </Stack>
       )}
@@ -244,7 +307,13 @@ export default function Tablero() {
 // Una recepción con su recorrido por las 6 etapas
 // ---------------------------------------------------------------------------
 
-function FilaRecepcion({ fila, avisos }: { fila: FilaTablero; avisos: number }) {
+function FilaRecepcion({
+  fila,
+  avisos,
+}: {
+  fila: FilaTablero
+  avisos: MarcaAvisos | undefined
+}) {
   const [abierta, setAbierta] = useState(false)
 
   return (
@@ -260,10 +329,10 @@ function FilaRecepcion({ fila, avisos }: { fila: FilaTablero; avisos: number }) 
             <Text fw={700} size="lg">
               {fila.servicio.nombre}
             </Text>
-            {/* Marca de la fila: tiene avisos en el panel "Requieren atención" */}
-            {avisos > 0 && (
-              <Badge color="orange" variant="light">
-                ⚠ {avisos} {avisos === 1 ? 'aviso' : 'avisos'}
+            {/* Marca de la fila: tiene avisos en el panel "Requieren atención" (color en avisosPorRecepcion) */}
+            {avisos && (
+              <Badge color={avisos.color} variant="light">
+                ⚠ {avisos.cantidad} {avisos.cantidad === 1 ? 'aviso' : 'avisos'}
               </Badge>
             )}
           </Group>
@@ -334,31 +403,136 @@ function FilaRecepcion({ fila, avisos }: { fila: FilaTablero; avisos: number }) 
 }
 
 // ---------------------------------------------------------------------------
-// Panel "Requieren atención" (versión mínima): avisos de GET /avisos.
-// TODO (otra tarjeta): marcar como visto, notificaciones, actualización automática,
-// filtros por tipo y umbrales editables desde la pantalla.
+// Panel "Requieren atención": avisos de GET /avisos, ya ordenados por el servidor.
+// Rojo = grave (llegó al doble de su umbral o el lote falló); naranja = pasó su umbral.
+// Plegable, con resumen y filtros por tipo y por servicio (se filtra en la pantalla).
+// TODO (necesitan migración, otra tarjeta): marcar un aviso como visto o resuelto,
+// umbrales editables desde la pantalla e historial de avisos.
 // ---------------------------------------------------------------------------
 
+type FiltroAviso = 'todos' | 'detenido' | 'listo_para_retirar'
+
+const CLAVE_PLEGADO = 'ciclo_panel_atencion_plegado'
+
+// El estado plegado es una comodidad de cada navegador: si no se puede leer, abierto
+function leerPlegado(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_PLEGADO) === '1'
+  } catch {
+    return false
+  }
+}
+
+function guardarPlegado(plegado: boolean) {
+  try {
+    localStorage.setItem(CLAVE_PLEGADO, plegado ? '1' : '0')
+  } catch {
+    // sin almacenamiento: se recuerda solo mientras la pantalla está abierta
+  }
+}
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
+
 function PanelAtencion({ avisos }: { avisos: Aviso[] }) {
+  const [plegado, setPlegado] = useState(leerPlegado)
+  const [tipo, setTipo] = useState<FiltroAviso>('todos')
+  const [servicioId, setServicioId] = useState<string | null>(null)
+
   if (avisos.length === 0) return null
 
-  const detenidos = avisos.filter((a) => a.tipo === 'detenido')
-  const listos = avisos.filter((a) => a.tipo === 'listo_para_retirar')
+  const graves = avisos.filter((a) => a.gravedad === 'alta').length
+  const medios = avisos.filter((a) => a.gravedad === 'media').length
+  const listosTotal = avisos.filter((a) => a.tipo === 'listo_para_retirar').length
+
+  // Servicios que tienen avisos, para el filtro
+  const servicios = [...new Map(avisos.map((a) => [a.servicio.id, a.servicio.nombre])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], 'es'))
+    .map(([id, nombre]) => ({ value: String(id), label: nombre }))
+  // Si el servicio elegido ya no tiene avisos (tras actualizar), el filtro no se aplica
+  const servicioVigente = servicios.some((s) => s.value === servicioId) ? servicioId : null
+
+  const visibles = avisos.filter(
+    (a) => (tipo === 'todos' || a.tipo === tipo) && (servicioVigente === null || String(a.servicio.id) === servicioVigente),
+  )
+  const detenidos = visibles.filter((a) => a.tipo === 'detenido')
+  const listos = visibles.filter((a) => a.tipo === 'listo_para_retirar')
+
+  const alternar = () => {
+    setPlegado((actual) => {
+      guardarPlegado(!actual)
+      return !actual
+    })
+  }
 
   return (
-    <Paper withBorder radius="md" p="md" className={styles.panelAtencion}>
-      <Text fw={700} size="lg" mb="xs">
-        Requieren atención ({avisos.length})
-      </Text>
-      <Stack gap="md">
-        {detenidos.length > 0 && <GrupoAvisos titulo="Material detenido" color="orange" avisos={detenidos} />}
-        {listos.length > 0 && <GrupoAvisos titulo="Listo para retirar" color="green" avisos={listos} />}
-      </Stack>
+    <Paper withBorder radius="md" p="md" className={graves > 0 ? styles.panelAtencionGrave : styles.panelAtencion}>
+      <Group justify="space-between" wrap="wrap">
+        <Group gap="sm">
+          <Text fw={700} size="lg">
+            Requieren atención ({avisos.length})
+          </Text>
+          {graves > 0 && (
+            <Badge color="red" variant="filled">
+              {plural(graves, 'grave', 'graves')}
+            </Badge>
+          )}
+          {medios > 0 && (
+            <Badge color="orange" variant="light">
+              {plural(medios, 'pasó su tiempo', 'pasaron su tiempo')}
+            </Badge>
+          )}
+          {listosTotal > 0 && (
+            <Badge color="green" variant="light">
+              {plural(listosTotal, 'listo para retirar', 'listos para retirar')}
+            </Badge>
+          )}
+        </Group>
+        <Button variant="subtle" size="compact-md" onClick={alternar} aria-expanded={!plegado}>
+          {plegado ? 'Mostrar' : 'Ocultar'}
+        </Button>
+      </Group>
+
+      <Collapse expanded={!plegado}>
+        <Group mt="md" gap="md" align="flex-end">
+          <SegmentedControl
+            value={tipo}
+            onChange={(valor) => setTipo(valor as FiltroAviso)}
+            data={[
+              { value: 'todos', label: 'Todos' },
+              { value: 'detenido', label: 'Detenidos' },
+              { value: 'listo_para_retirar', label: 'Listos para retirar' },
+            ]}
+          />
+          <Select
+            placeholder="Todos los servicios"
+            aria-label="Filtrar los avisos por servicio"
+            data={servicios}
+            value={servicioVigente}
+            onChange={setServicioId}
+            clearable
+            searchable
+            w={260}
+          />
+        </Group>
+
+        <Stack gap="md" mt="md">
+          {detenidos.length > 0 && (
+            <GrupoAvisos
+              titulo="Material detenido"
+              color={detenidos.some((a) => a.gravedad === 'alta') ? 'red' : 'orange'}
+              avisos={detenidos}
+            />
+          )}
+          {listos.length > 0 && <GrupoAvisos titulo="Listo para retirar" color="green" avisos={listos} />}
+          {visibles.length === 0 && <Text c="dimmed">No hay avisos con ese filtro.</Text>}
+        </Stack>
+      </Collapse>
     </Paper>
   )
 }
 
 function GrupoAvisos({ titulo, color, avisos }: { titulo: string; color: string; avisos: Aviso[] }) {
+  const conGravedad = avisos.some((a) => a.gravedad !== null)
   return (
     <div>
       <Badge color={color} variant="filled" mb={6}>
@@ -367,6 +541,7 @@ function GrupoAvisos({ titulo, color, avisos }: { titulo: string; color: string;
       <Table verticalSpacing={4} fz="sm">
         <Table.Thead>
           <Table.Tr>
+            {conGravedad && <Table.Th>Gravedad</Table.Th>}
             <Table.Th>Servicio</Table.Th>
             <Table.Th>Material</Table.Th>
             <Table.Th>Etapa</Table.Th>
@@ -375,7 +550,23 @@ function GrupoAvisos({ titulo, color, avisos }: { titulo: string; color: string;
         </Table.Thead>
         <Table.Tbody>
           {avisos.map((a) => (
-            <Table.Tr key={`${a.tipo}-${a.recepcion_id}-${a.material.id}-${a.etapa_orden}-${a.lote?.id ?? 0}`}>
+            <Table.Tr
+              key={`${a.tipo}-${a.recepcion_id}-${a.material.id}-${a.etapa_orden}-${a.lote?.id ?? 0}`}
+              className={a.gravedad === 'alta' ? styles.avisoGrave : undefined}
+            >
+              {conGravedad && (
+                <Table.Td>
+                  {a.gravedad === 'alta' ? (
+                    <Badge color="red" variant="filled" size="sm">
+                      Grave
+                    </Badge>
+                  ) : (
+                    <Badge color="orange" variant="light" size="sm">
+                      Pasó su tiempo
+                    </Badge>
+                  )}
+                </Table.Td>
+              )}
               <Table.Td>
                 {a.servicio.nombre}
                 <Text span c="dimmed" fz="xs">
