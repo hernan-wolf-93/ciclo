@@ -165,6 +165,105 @@ export interface LoteDetalle {
 
 // Estado que muestra la pantalla. No se guarda: se deduce de fin, resultado y aireación.
 export type EstadoLote = 'en_curso' | 'en_aireacion' | 'aprobado' | 'fallido'
+
+// ---------------------------------------------------------------------------
+// Pantalla de Esterilización: armar la carga de un equipo y cerrar el ciclo
+// * El operador sale de la sesión y los datos del ciclo, del programa elegido.
+// ---------------------------------------------------------------------------
+
+// GET /equipos: equipos activos. Acá el método viene como texto (su nombre), no como
+// objeto: el Equipo de arriba es el que viene anidado en los lotes.
+export interface EquipoDeCarga {
+  id: number
+  nombre: string
+  metodo_id: number
+  metodo: string // "Calor húmedo", "Calor seco" u "Óxido de etileno"
+}
+
+// GET /equipos/{id}/pendientes: unidades listas para cargar en ese equipo, por servicio
+// de origen y material (no ítems sueltos). Ya vienen filtradas por el método del equipo
+// e incluyen lo de un lote fallido de ese método, para reprocesar.
+export interface PendienteCarga {
+  servicio_id: number
+  servicio: string
+  material_id: number
+  material: string
+  cantidad: number
+}
+
+// Una línea de la carga: cuántas unidades de un material de un servicio.
+// * El par servicio + material no se repite en dos líneas (la API responde 422).
+export interface LineaLote {
+  servicio_id: number
+  material_id: number
+  cantidad: number
+}
+
+// Lo que la pantalla manda en POST /lotes
+export interface NuevoLote {
+  equipo_id: number
+  programa_id: number
+  numero: number // de 1 a 999: el sistema lo propone y el operador puede corregirlo
+  lineas: LineaLote[]
+}
+
+// Lo que devuelve POST /lotes (201)
+export interface LoteCreado {
+  id: number
+  numero: number
+  equipo_id: number
+  programa_id: number
+  inicio: string
+  total_items: number // unidades que entraron al equipo
+}
+
+// Lo que la pantalla manda en POST /lotes/{id}/cierre
+export interface CierreLote {
+  numero_ciclo: number // contador del equipo, el que imprime el ticket: entero de 1 en adelante (obligatorio)
+  resultado: ResultadoLote
+  observacion?: string // obligatoria si resultado es 'fallido'
+}
+
+// Lo que devuelve POST /lotes/{id}/cierre (200). El fin lo pone el servidor.
+export interface LoteCerrado {
+  id: number
+  numero: number
+  resultado: ResultadoLote
+  fin: string
+  numero_ciclo: string // se guarda como texto (lote.numero_ciclo)
+  observacion: string | null
+}
+
+// * Los lotes en curso (GET /lotes?en_curso=true) son LoteResumen con fin en null:
+// * traen el equipo pero no el programa.
+
+// ---------------------------------------------------------------------------
+// Control Bowie-Dick: obligatorio cada día antes de usar el autoclave (calor húmedo)
+// ---------------------------------------------------------------------------
+
+// GET /equipos/{id}/bowie-dick/hoy: cuenta el último control de hoy (hora de Tucumán)
+export interface BowieDickHoy {
+  equipo_id: number
+  aprobado_hoy: boolean
+}
+
+// Lo que la pantalla manda en POST /equipos/{id}/bowie-dick
+export interface NuevoBowieDick {
+  resultado: ResultadoLote
+  observacion?: string // obligatoria si resultado es 'fallido'
+  numero_ciclo?: string // opcional, hasta 20 caracteres
+}
+
+// Lo que devuelve POST /equipos/{id}/bowie-dick (201). La hora la pone la base.
+export interface BowieDickRegistrado {
+  id: number
+  equipo_id: number
+  fecha_hora: string
+  resultado: ResultadoLote
+  observacion: string | null
+  numero_ciclo: string | null
+}
+
 // Operador con sesión iniciada (respuesta de GET /auth/me)
 export interface Usuario {
   id: number
