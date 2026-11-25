@@ -30,6 +30,7 @@ número del PR.
 
 | Fecha | Quién | Tarjeta de Trello | Resumen |
 | --- | --- | --- | --- |
+| 25/11/2026 | Mara | Pantalla de Esterilización | Pantalla de Esterilización conectada a la API real: equipo, programa, paquetes, Bowie-Dick, crear lote y cerrar ciclo (PR #49). |
 | 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | POST /lotes/{id}/falla-posterior: marca como fallido un lote aprobado con falla detectada después del cierre (569 pruebas) (PR #47). |
 | 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | Migración 0011: auditoría de la falla posterior en lote (quién y cuándo) con tres restricciones CHECK (552 pruebas) (PR #46). |
 | 25/11/2026 | Lobo | API de esterilización, equipos, programas y ciclo | Reglas de flujo: un ítem en Almacén de un lote fallido vuelve a Esterilización y no pasa a Entrega (546 pruebas) (PR #45). |
